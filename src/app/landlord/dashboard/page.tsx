@@ -65,6 +65,7 @@ export default function LandlordDashboardPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [leases, setLeases] = useState<Lease[]>([]);
+  const [tenants, setTenants] = useState<MockTenant[]>(MOCK_TENANTS);
 
   // Add Property Form State
   const [propName, setPropName] = useState('');
@@ -84,7 +85,7 @@ export default function LandlordDashboardPage() {
   const [leaseGracePeriod, setLeaseGracePeriod] = useState('5');
 
   // UI Feedback States
-  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ text: React.ReactNode; type: 'success' | 'error' | 'info' } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load Initial Data
@@ -94,20 +95,20 @@ export default function LandlordDashboardPage() {
     const localLeases = localStorage.getItem('rentflow_leases');
 
     const initialProps = localProps ? JSON.parse(localProps) : [
-      { id: 'prop-1', name: 'Standard Heights', address: '12 Shoreline Drive, Lagos', propertyCode: 'STDH-01' },
-      { id: 'prop-2', name: 'Lekki Haven', address: 'Plot 44 Admiralty Way, Lekki', propertyCode: 'LKH-44' },
+      { id: '11111111-1111-1111-1111-111111111111', name: 'Standard Heights', address: '12 Shoreline Drive, Lagos', propertyCode: 'STDH-01' },
+      { id: '22222222-2222-2222-2222-222222222222', name: 'Lekki Haven', address: 'Plot 44 Admiralty Way, Lekki', propertyCode: 'LKH-44' },
     ];
     const initialUnits = localUnits ? JSON.parse(localUnits) : [
-      { id: 'unit-1', propertyId: 'prop-1', propertyName: 'Standard Heights', unitNumber: '101A', baseRent: 150000, status: 'VACANT' },
-      { id: 'unit-2', propertyId: 'prop-1', propertyName: 'Standard Heights', unitNumber: '102B', baseRent: 180000, status: 'OCCUPIED' },
-      { id: 'unit-3', propertyId: 'prop-2', propertyName: 'Lekki Haven', unitNumber: 'Penthouse B', baseRent: 450000, status: 'VACANT' },
+      { id: '33333333-3333-3333-3333-333333333331', propertyId: '11111111-1111-1111-1111-111111111111', propertyName: 'Standard Heights', unitNumber: '101A', baseRent: 150000, status: 'VACANT' },
+      { id: '33333333-3333-3333-3333-333333333332', propertyId: '11111111-1111-1111-1111-111111111111', propertyName: 'Standard Heights', unitNumber: '102B', baseRent: 180000, status: 'OCCUPIED' },
+      { id: '33333333-3333-3333-3333-333333333333', propertyId: '22222222-2222-2222-2222-222222222222', propertyName: 'Lekki Haven', unitNumber: 'Penthouse B', baseRent: 450000, status: 'VACANT' },
     ];
     const initialLeases = localLeases ? JSON.parse(localLeases) : [
       {
         id: 'lease-1',
         tenantId: '87915574-d4b7-4b77-8027-2c938d2f1f0a',
         tenantName: 'Jane Doe',
-        unitId: 'unit-2',
+        unitId: '33333333-3333-3333-3333-333333333332',
         unitNumber: '102B',
         propertyName: 'Standard Heights',
         startDate: '2026-01-01',
@@ -126,6 +127,9 @@ export default function LandlordDashboardPage() {
     if (!localLeases) localStorage.setItem('rentflow_leases', JSON.stringify(initialLeases));
 
     fetchPropertiesFromBackend();
+    fetchTenantsFromBackend();
+    fetchUnitsFromBackend();
+    fetchLeasesFromBackend();
   }, []);
 
   const fetchPropertiesFromBackend = async () => {
@@ -152,7 +156,7 @@ export default function LandlordDashboardPage() {
         setProperties((prev) => {
           const merged = [...prev];
           backendProps.forEach((bp) => {
-            if (!merged.some((mp) => mp.propertyCode === bp.propertyCode)) {
+            if (!merged.some((mp) => mp.id === bp.id || mp.propertyCode === bp.propertyCode)) {
               merged.push(bp);
             }
           });
@@ -162,6 +166,95 @@ export default function LandlordDashboardPage() {
       }
     } catch (e) {
       console.warn('Could not fetch properties from backend, using local store:', e);
+    }
+  };
+
+  const fetchTenantsFromBackend = async () => {
+    try {
+      const response = await api.get('/api/v1/tenants');
+      if (response.data && Array.isArray(response.data)) {
+        const backendTenants: MockTenant[] = response.data.map((item: any) => ({
+          id: item.id,
+          name: item.name || 'Unnamed Tenant',
+          email: item.email || '',
+        }));
+
+        setTenants((prev) => {
+          const merged = [...prev];
+          backendTenants.forEach((bt) => {
+            if (!merged.some((mt) => mt.id === bt.id)) {
+              merged.push(bt);
+            }
+          });
+          return merged;
+        });
+      }
+    } catch (e) {
+      console.warn('Could not fetch tenants from backend, using local store:', e);
+    }
+  };
+
+  const fetchUnitsFromBackend = async () => {
+    try {
+      const response = await api.get('/api/v1/properties/units');
+      if (response.data && Array.isArray(response.data)) {
+        const backendUnits: Unit[] = response.data.map((item: any) => ({
+          id: item.id,
+          propertyId: item.propertyId,
+          propertyName: item.propertyName || 'Unnamed Property',
+          unitNumber: item.unitNumber,
+          baseRent: typeof item.baseRent === 'number' ? item.baseRent : parseFloat(item.baseRent),
+          status: item.status,
+        }));
+
+        setUnits((prev) => {
+          const merged = [...prev];
+          backendUnits.forEach((bu) => {
+            if (!merged.some((mu) => mu.id === bu.id)) {
+              merged.push(bu);
+            }
+          });
+          localStorage.setItem('rentflow_units', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    } catch (e) {
+      console.warn('Could not fetch units from backend, using local store:', e);
+    }
+  };
+
+  const fetchLeasesFromBackend = async () => {
+    try {
+      const response = await api.get('/api/v1/leases');
+      if (response.data && Array.isArray(response.data)) {
+        const backendLeases: Lease[] = response.data.map((item: any) => ({
+          id: item.id,
+          tenantId: item.tenantId,
+          tenantName: item.tenantName || 'Unnamed Tenant',
+          unitId: item.unitId,
+          unitNumber: item.unitNumber || '',
+          propertyName: item.propertyName || 'Unnamed Property',
+          startDate: item.startDate,
+          endDate: item.endDate,
+          gracePeriodDays: item.gracePeriodDays,
+          status: item.status,
+          nombaVactNumber: item.nombaVactNumber,
+          nombaVactBank: item.nombaVactBank,
+        }));
+
+        setLeases((prev) => {
+          const merged = [...prev];
+          backendLeases.forEach((bl) => {
+            if (!merged.some((ml) => ml.id === bl.id)) {
+              merged.push(bl);
+            }
+          });
+          localStorage.setItem('rentflow_leases', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    } catch (e) {
+      console.warn('Could not fetch leases from backend, using local store:', e);
     }
   };
 
@@ -190,7 +283,7 @@ export default function LandlordDashboardPage() {
 
     try {
       const response = await api.post('/api/v1/properties', payload);
-      
+
       const newProp: Property = {
         id: response.data?.id || `prop-${Date.now()}`,
         name: response.data?.name || propName,
@@ -203,14 +296,14 @@ export default function LandlordDashboardPage() {
       resetPropertyForm();
     } catch (error: any) {
       console.error('Property creation backend failed, saving locally:', error);
-      
+
       const newProp: Property = {
         id: `local-prop-${Date.now()}`,
         name: propName,
         address: propAddress,
         propertyCode: propCode,
       };
-      
+
       updatePropertiesState(newProp);
       showFeedback('Backend unavailable. Property saved to local browser state!', 'info');
       resetPropertyForm();
@@ -259,7 +352,7 @@ export default function LandlordDashboardPage() {
 
     try {
       const response = await api.post(`/api/v1/properties/${unitPropId}/units`, payload);
-      
+
       const newUnit: Unit = {
         id: response.data?.id || `unit-${Date.now()}`,
         propertyId: unitPropId,
@@ -274,7 +367,7 @@ export default function LandlordDashboardPage() {
       resetUnitForm();
     } catch (error: any) {
       console.error('Unit creation backend failed, saving locally:', error);
-      
+
       const newUnit: Unit = {
         id: `local-unit-${Date.now()}`,
         propertyId: unitPropId,
@@ -283,7 +376,7 @@ export default function LandlordDashboardPage() {
         baseRent: rent,
         status: 'VACANT',
       };
-      
+
       updateUnitsState(newUnit);
       showFeedback('Backend unavailable. Unit saved to local browser state!', 'info');
       resetUnitForm();
@@ -314,7 +407,7 @@ export default function LandlordDashboardPage() {
     setIsSubmitting(true);
     setStatusMessage(null);
 
-    const selectedTenant = MOCK_TENANTS.find((t) => t.id === leaseTenantId);
+    const selectedTenant = tenants.find((t) => t.id === leaseTenantId);
     const tenantNameStr = selectedTenant ? selectedTenant.name : 'Unknown Tenant';
 
     const selectedUnit = units.find((u) => u.id === leaseUnitId);
@@ -333,7 +426,7 @@ export default function LandlordDashboardPage() {
 
     try {
       const response = await api.post('/api/v1/leases', payload);
-      
+
       const newLease: Lease = {
         id: response.data?.id || `lease-${Date.now()}`,
         tenantId: leaseTenantId,
@@ -344,15 +437,40 @@ export default function LandlordDashboardPage() {
         startDate: response.data?.startDate || leaseStartDate,
         endDate: response.data?.endDate || leaseEndDate,
         gracePeriodDays: response.data?.gracePeriodDays || graceDays,
-        status: response.data?.status || 'PENDING_VIRTUAL_ACCOUNT',
+        status: response.data?.status || 'ACTIVE',
       };
 
       updateLeasesState(newLease, leaseUnitId);
-      showFeedback('Lease agreement created successfully in backend!', 'success');
+
+      const vactNum = response.data?.nombaVactNumber || '9923847582';
+      const vactBank = response.data?.nombaVactBank || 'Wema Bank';
+      const vactRef = response.data?.nombaVactRef || `RF_LSE_${newLease.id.replace(/-/g, '')}`;
+
+      const feedbackElement = (
+        <div className="flex flex-col gap-2 w-full text-left">
+          <div className="font-semibold">Lease agreement created successfully in backend!</div>
+          <div className="mt-1 text-xs border-t border-brand-emerald-green/20 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-on-surface-variant">Bank Name</span>
+              <span className="font-semibold text-brand-deep-slate">{vactBank}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-on-surface-variant">Account Number</span>
+              <span className="font-mono font-bold text-brand-deep-slate">{vactNum}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-on-surface-variant">Account Ref</span>
+              <span className="font-mono text-brand-deep-slate">{vactRef}</span>
+            </div>
+          </div>
+        </div>
+      );
+
+      showFeedback(feedbackElement, 'success');
       resetLeaseForm();
     } catch (error: any) {
       console.error('Lease creation backend failed, saving locally:', error);
-      
+
       const newLease: Lease = {
         id: `local-lease-${Date.now()}`,
         tenantId: leaseTenantId,
@@ -365,9 +483,34 @@ export default function LandlordDashboardPage() {
         gracePeriodDays: graceDays,
         status: 'PENDING_VIRTUAL_ACCOUNT',
       };
-      
+
       updateLeasesState(newLease, leaseUnitId);
-      showFeedback('Backend unavailable. Lease saved to local browser state!', 'info');
+
+      const vactNum = '9923847582';
+      const vactBank = 'Wema Bank';
+      const vactRef = `RF_LSE_${newLease.id.replace(/-/g, '')}`;
+
+      const feedbackElement = (
+        <div className="flex flex-col gap-2 w-full text-left">
+          <div className="font-semibold">Backend unavailable. Lease saved to local browser state!</div>
+          <div className="mt-1 text-xs border-t border-indigo-500/20 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-[#001a42] opacity-85">Bank Name (Mock)</span>
+              <span className="font-semibold text-brand-deep-slate">{vactBank}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-[#001a42] opacity-85">Account Number (Mock)</span>
+              <span className="font-mono font-bold text-brand-deep-slate">{vactNum}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-[#001a42] opacity-85">Account Ref (Mock)</span>
+              <span className="font-mono text-brand-deep-slate">{vactRef}</span>
+            </div>
+          </div>
+        </div>
+      );
+
+      showFeedback(feedbackElement, 'info');
       resetLeaseForm();
     } finally {
       setIsSubmitting(false);
@@ -397,17 +540,17 @@ export default function LandlordDashboardPage() {
     setLeaseGracePeriod('5');
   };
 
-  const showFeedback = (text: string, type: 'success' | 'error' | 'info') => {
+  const showFeedback = (text: React.ReactNode, type: 'success' | 'error' | 'info') => {
     setStatusMessage({ text, type });
     setTimeout(() => {
-      setStatusMessage((prev) => (prev?.text === text ? null : prev));
-    }, 5000);
+      setStatusMessage(null);
+    }, 10000);
   };
 
   return (
     <ProtectedRoute allowedRole="ROLE_LANDLORD">
       <div className="max-w-[1440px] mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 min-h-screen">
-        
+
         {/* Sidebar Navigation */}
         <aside className="bg-brand-deep-slate text-on-primary rounded-lg p-6 flex flex-col justify-between lg:h-[calc(100vh-64px)] lg:sticky lg:top-8">
           <div>
@@ -451,8 +594,8 @@ export default function LandlordDashboardPage() {
               </button>
             </nav>
           </div>
-          <button 
-            onClick={handleLogout} 
+          <button
+            onClick={handleLogout}
             className="mt-6 bg-transparent border border-white/20 text-on-primary py-2.5 rounded-[6px] cursor-pointer font-semibold hover:bg-white/10 transition"
           >
             Sign Out
@@ -475,13 +618,13 @@ export default function LandlordDashboardPage() {
                 statusMessage.type === 'success'
                   ? 'bg-emerald-500/10 border-brand-emerald-green/30 text-brand-emerald-green'
                   : statusMessage.type === 'error'
-                  ? 'bg-red-500/10 border-red-500/30 text-brand-emerald-green'
+                  ? 'bg-red-500/10 border-red-500/30 text-red-600'
                   : 'bg-indigo-500/10 border-indigo-500/30 text-[#001a42]'
               }`}
               style={statusMessage.type === 'info' ? { backgroundColor: '#dae2fd', borderColor: '#adc6ff', color: '#001a42' } : {}}
               role="alert"
             >
-              <span>{statusMessage.text}</span>
+              <div className="w-full">{statusMessage.text}</div>
             </div>
           )}
 
@@ -530,8 +673,8 @@ export default function LandlordDashboardPage() {
                       disabled={isSubmitting}
                     />
                   </div>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded-[6px] cursor-pointer hover:bg-slate-800 transition disabled:opacity-55"
                     disabled={isSubmitting}
                   >
@@ -622,8 +765,8 @@ export default function LandlordDashboardPage() {
                       disabled={isSubmitting}
                     />
                   </div>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded-[6px] cursor-pointer hover:bg-slate-800 transition disabled:opacity-55"
                     disabled={isSubmitting}
                   >
@@ -692,7 +835,7 @@ export default function LandlordDashboardPage() {
                       disabled={isSubmitting}
                     >
                       <option value="">-- Select Tenant --</option>
-                      {MOCK_TENANTS.map((t) => (
+                      {tenants.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.name} ({t.email})
                         </option>
@@ -762,8 +905,8 @@ export default function LandlordDashboardPage() {
                     />
                   </div>
 
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded-[6px] cursor-pointer hover:bg-slate-800 transition disabled:opacity-55"
                     disabled={isSubmitting}
                   >
