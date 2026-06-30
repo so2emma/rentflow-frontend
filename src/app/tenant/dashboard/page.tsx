@@ -18,22 +18,31 @@ export default function TenantDashboardPage() {
   });
 
   const [lease, setLease] = useState<any>(null);
+  const [ledgers, setLedgers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
-    async function fetchActiveLease() {
+    async function fetchActiveLeaseAndLedgers() {
       try {
-        const response = await api.get('/api/v1/leases/active');
+        const leaseRes = await api.get('/api/v1/leases/active');
         if (isMounted) {
-          if (response.data) {
-            setLease(response.data);
+          if (leaseRes.data) {
+            setLease(leaseRes.data);
+            try {
+              const ledgersRes = await api.get('/api/v1/leases/active/ledgers');
+              if (isMounted && ledgersRes.data) {
+                setLedgers(ledgersRes.data);
+              }
+            } catch (err) {
+              console.warn('Error fetching active lease ledgers:', err);
+            }
           } else {
             setLease(null);
           }
         }
       } catch (error) {
-        console.error('Error fetching active lease:', error);
+        console.warn('Error fetching active lease:', error);
         if (isMounted) {
           setLease(null);
         }
@@ -43,7 +52,7 @@ export default function TenantDashboardPage() {
         }
       }
     }
-    fetchActiveLease();
+    fetchActiveLeaseAndLedgers();
     return () => {
       isMounted = false;
     };
@@ -70,7 +79,18 @@ export default function TenantDashboardPage() {
   const virtualAccountNumber = lease?.nombaVactNumber || 'Pending...';
   const virtualAccountName = lease?.nombaVactName || `RentFlow Depot - ${tenantName}`;
   const rentAmount = lease?.unit?.baseRent || lease?.baseRent || 0;
-  const outstandingBalance = `₦ ${Number(rentAmount).toLocaleString()}`;
+
+  // Calculate outstanding balance from ledger entries
+  const outstandingAmount = ledgers
+    .filter((item: any) => item.status !== 'PAID')
+    .reduce((sum: number, item: any) => sum + (item.amountDue - item.amountPaid), 0);
+  const outstandingBalance = `₦ ${Number(outstandingAmount).toLocaleString()}`;
+
+  // Find next due date from earliest unpaid ledger entry
+  const nextDueEntry = ledgers
+    .filter((item: any) => item.status !== 'PAID')
+    .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+  const nextDueDate = nextDueEntry ? nextDueEntry.dueDate : 'N/A';
 
   return (
     <ProtectedRoute allowedRole="ROLE_TENANT">
@@ -158,32 +178,40 @@ export default function TenantDashboardPage() {
                     <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Outstanding Balance</div>
                     <div className="text-2xl font-bold text-brand-deep-slate mt-1">{outstandingBalance}</div>
                   </div>
-                  <span className="text-xs text-amber-600 font-semibold">Rent Payment Outstanding</span>
+                  <span className={`text-xs font-semibold ${outstandingAmount > 0 ? 'text-amber-600' : 'text-brand-emerald-green'}`}>
+                    {outstandingAmount > 0 ? 'Rent & utilities outstanding' : 'Rent fully paid'}
+                  </span>
                 </div>
 
                 <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 flex flex-col gap-1.5 justify-between">
                   <div>
                     <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Next Due Date</div>
-                    <div className="text-2xl font-bold text-brand-deep-slate mt-1">{lease.nextDueDate || lease.startDate || 'N/A'}</div>
+                    <div className="text-2xl font-bold text-brand-deep-slate mt-1">{nextDueDate}</div>
                   </div>
-                  <span className="text-xs text-on-surface-variant">Based on active lease term</span>
+                  <span className="text-xs text-on-surface-variant">Based on active invoice due date</span>
                 </div>
 
-                <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 flex flex-col gap-1.5 sm:col-span-2 justify-between">
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 flex flex-col gap-1.5 justify-between">
+                  <div>
+                    <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Rollover Credit</div>
+                    <div className="text-2xl font-bold text-brand-deep-slate mt-1">₦ {Number(lease.depositWalletBalance || 0).toLocaleString()}</div>
+                  </div>
+                  <span className="text-xs text-brand-emerald-green font-semibold">Rollover funds for next cycle</span>
+                </div>
+
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 flex flex-col gap-1.5 justify-between">
                   <div>
                     <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Lease Status &amp; Unit</div>
                     <div className="flex justify-between items-center mt-1">
-                      <div className="text-2xl font-bold text-brand-blue capitalize">{lease.status ? lease.status.toLowerCase().replace(/_/g, ' ') : 'Pending'}</div>
+                      <div className="text-xl font-bold text-brand-blue capitalize">{lease.status ? lease.status.toLowerCase().replace(/_/g, ' ') : 'Pending'}</div>
                       <div className="text-sm font-semibold text-on-surface-variant">Unit: {lease.unit?.unitNumber || 'N/A'}</div>
                     </div>
                   </div>
-                  <span className="text-xs text-on-surface-variant mt-1 block">
-                    Active lease for unit {lease.unit?.unitNumber || 'N/A'} with rent ₦{Number(rentAmount).toLocaleString()} per annum.
-                  </span>
+                  <span className="text-xs text-on-surface-variant">Active tenant agreement</span>
                 </div>
               </div>
 
-              {/* Empty Ledger Details Card */}
+              {/* Dynamic Ledger Details Card */}
               <div className="lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-brand-deep-slate mb-4">Billing &amp; Payment Ledger</h2>
                 <div className="overflow-x-auto border border-outline-variant rounded-lg">
@@ -198,19 +226,43 @@ export default function TenantDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td colSpan={5} className="p-12 text-center">
-                          <div className="flex flex-col items-center gap-2 text-on-surface-variant">
-                            <svg className="w-10 h-10 text-outline-variant" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <strong className="text-brand-deep-slate text-sm">Ledger is Empty</strong>
-                            <p className="text-xs">
-                              No transactions or invoices have been posted to your ledger.
-                            </p>
-                          </div>
-                        </td>
-                      </tr>
+                      {ledgers.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-12 text-center">
+                            <div className="flex flex-col items-center gap-2 text-on-surface-variant">
+                              <svg className="w-10 h-10 text-outline-variant" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <strong className="text-brand-deep-slate text-sm">Ledger is Empty</strong>
+                              <p className="text-xs">
+                                No transactions or invoices have been posted to your ledger.
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        ledgers.map((item: any) => (
+                          <tr key={item.id} className="border-b border-outline-variant hover:bg-surface-container-low transition">
+                            <td className="p-3.5 text-sm tabular-nums text-brand-deep-slate">{item.dueDate}</td>
+                            <td className="p-3.5 text-xs font-mono text-on-surface-variant truncate max-w-[120px]">{item.id}</td>
+                            <td className="p-3.5 text-sm text-brand-deep-slate font-medium capitalize">
+                              {item.entryType ? item.entryType.toLowerCase().replace(/_/g, ' ') : 'N/A'}
+                            </td>
+                            <td className="p-3.5 text-sm tabular-nums text-brand-deep-slate">
+                              ₦{Number(item.amountDue).toLocaleString()}
+                            </td>
+                            <td className="p-3.5 text-sm">
+                              <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                item.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' :
+                                item.status === 'PARTIALLY_PAID' ? 'bg-amber-100 text-amber-800' :
+                                'bg-rose-100 text-rose-800'
+                              }`}>
+                                {item.status ? item.status.replace(/_/g, ' ') : 'UNPAID'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
