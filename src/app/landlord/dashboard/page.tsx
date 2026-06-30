@@ -65,7 +65,7 @@ export default function LandlordDashboardPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [leases, setLeases] = useState<Lease[]>([]);
-  const [tenants, setTenants] = useState<MockTenant[]>(MOCK_TENANTS);
+  const [tenants, setTenants] = useState<MockTenant[]>([]);
 
   // Add Property Form State
   const [propName, setPropName] = useState('');
@@ -94,37 +94,13 @@ export default function LandlordDashboardPage() {
     const localUnits = localStorage.getItem('rentflow_units');
     const localLeases = localStorage.getItem('rentflow_leases');
 
-    const initialProps = localProps ? JSON.parse(localProps) : [
-      { id: '11111111-1111-1111-1111-111111111111', name: 'Standard Heights', address: '12 Shoreline Drive, Lagos', propertyCode: 'STDH-01' },
-      { id: '22222222-2222-2222-2222-222222222222', name: 'Lekki Haven', address: 'Plot 44 Admiralty Way, Lekki', propertyCode: 'LKH-44' },
-    ];
-    const initialUnits = localUnits ? JSON.parse(localUnits) : [
-      { id: '33333333-3333-3333-3333-333333333331', propertyId: '11111111-1111-1111-1111-111111111111', propertyName: 'Standard Heights', unitNumber: '101A', baseRent: 150000, status: 'VACANT' },
-      { id: '33333333-3333-3333-3333-333333333332', propertyId: '11111111-1111-1111-1111-111111111111', propertyName: 'Standard Heights', unitNumber: '102B', baseRent: 180000, status: 'OCCUPIED' },
-      { id: '33333333-3333-3333-3333-333333333333', propertyId: '22222222-2222-2222-2222-222222222222', propertyName: 'Lekki Haven', unitNumber: 'Penthouse B', baseRent: 450000, status: 'VACANT' },
-    ];
-    const initialLeases = localLeases ? JSON.parse(localLeases) : [
-      {
-        id: 'lease-1',
-        tenantId: '87915574-d4b7-4b77-8027-2c938d2f1f0a',
-        tenantName: 'Jane Doe',
-        unitId: '33333333-3333-3333-3333-333333333332',
-        unitNumber: '102B',
-        propertyName: 'Standard Heights',
-        startDate: '2026-01-01',
-        endDate: '2026-12-31',
-        gracePeriodDays: 5,
-        status: 'ACTIVE',
-      },
-    ];
+    const initialProps = localProps ? JSON.parse(localProps) : [];
+    const initialUnits = localUnits ? JSON.parse(localUnits) : [];
+    const initialLeases = localLeases ? JSON.parse(localLeases) : [];
 
     setProperties(initialProps);
     setUnits(initialUnits);
     setLeases(initialLeases);
-
-    if (!localProps) localStorage.setItem('rentflow_props', JSON.stringify(initialProps));
-    if (!localUnits) localStorage.setItem('rentflow_units', JSON.stringify(initialUnits));
-    if (!localLeases) localStorage.setItem('rentflow_leases', JSON.stringify(initialLeases));
 
     fetchPropertiesFromBackend();
     fetchTenantsFromBackend();
@@ -153,16 +129,8 @@ export default function LandlordDashboardPage() {
           };
         });
 
-        setProperties((prev) => {
-          const merged = [...prev];
-          backendProps.forEach((bp) => {
-            if (!merged.some((mp) => mp.id === bp.id || mp.propertyCode === bp.propertyCode)) {
-              merged.push(bp);
-            }
-          });
-          localStorage.setItem('rentflow_props', JSON.stringify(merged));
-          return merged;
-        });
+        setProperties(backendProps);
+        localStorage.setItem('rentflow_props', JSON.stringify(backendProps));
       }
     } catch (e) {
       console.warn('Could not fetch properties from backend, using local store:', e);
@@ -179,15 +147,7 @@ export default function LandlordDashboardPage() {
           email: item.email || '',
         }));
 
-        setTenants((prev) => {
-          const merged = [...prev];
-          backendTenants.forEach((bt) => {
-            if (!merged.some((mt) => mt.id === bt.id)) {
-              merged.push(bt);
-            }
-          });
-          return merged;
-        });
+        setTenants(backendTenants);
       }
     } catch (e) {
       console.warn('Could not fetch tenants from backend, using local store:', e);
@@ -207,16 +167,8 @@ export default function LandlordDashboardPage() {
           status: item.status,
         }));
 
-        setUnits((prev) => {
-          const merged = [...prev];
-          backendUnits.forEach((bu) => {
-            if (!merged.some((mu) => mu.id === bu.id)) {
-              merged.push(bu);
-            }
-          });
-          localStorage.setItem('rentflow_units', JSON.stringify(merged));
-          return merged;
-        });
+        setUnits(backendUnits);
+        localStorage.setItem('rentflow_units', JSON.stringify(backendUnits));
       }
     } catch (e) {
       console.warn('Could not fetch units from backend, using local store:', e);
@@ -242,16 +194,8 @@ export default function LandlordDashboardPage() {
           nombaVactBank: item.nombaVactBank,
         }));
 
-        setLeases((prev) => {
-          const merged = [...prev];
-          backendLeases.forEach((bl) => {
-            if (!merged.some((ml) => ml.id === bl.id)) {
-              merged.push(bl);
-            }
-          });
-          localStorage.setItem('rentflow_leases', JSON.stringify(merged));
-          return merged;
-        });
+        setLeases(backendLeases);
+        localStorage.setItem('rentflow_leases', JSON.stringify(backendLeases));
       }
     } catch (e) {
       console.warn('Could not fetch leases from backend, using local store:', e);
