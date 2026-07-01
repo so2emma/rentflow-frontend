@@ -39,7 +39,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
       } else {
         setIsAuthorized(true);
       }
-    } catch (e) {
+    } catch {
       localStorage.removeItem('rentflow_token');
       localStorage.removeItem('rentflow_user');
       router.replace('/login');

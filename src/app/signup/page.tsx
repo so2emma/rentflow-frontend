@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/services/api';
+import { signUp } from '@/lib/api/auth';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -108,15 +108,11 @@ export default function SignUpPage() {
     }
 
     try {
-      await api.post('/api/auth/signup', payload);
+      await signUp(payload);
       // On success, redirect to login page with a success query param
       router.push('/login?signup_success=true');
     } catch (error: any) {
-      if (error.response && error.response.data) {
-        setErrorMessage(error.response.data.message || 'Signup failed. Please try again.');
-      } else {
-        setErrorMessage('Cannot connect to the server. Please check your internet connection.');
-      }
+      setErrorMessage(error.message || 'Signup failed. Please try again.');
       console.error('Signup error:', error);
     } finally {
       setIsLoading(false);
@@ -124,16 +120,16 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-8">
-      <div className="w-full max-w-[520px] bg-surface-container-lowest border border-outline-variant rounded-lg p-8 shadow-md">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
+      <div className="w-full max-w-[520px] bg-surface-container-lowest border border-outline-variant rounded-md p-8 shadow-sm transition-shadow duration-150 hover:shadow-md">
         <div className="mb-7 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-brand-deep-slate mb-2">Create Account</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-brand-deep-slate mb-2 font-sans">Create Account</h1>
           <p className="text-sm text-on-surface-variant">Register your RentFlow portal profile</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           {errorMessage && (
-            <div className="bg-error-container border border-[#fda4af] rounded p-3 text-sm text-on-error-container flex items-start gap-2" role="alert">
+            <div className="bg-error-container border border-error/20 rounded p-3 text-sm text-on-error-container flex items-start gap-2" role="alert">
               <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -148,7 +144,7 @@ export default function SignUpPage() {
               <input
                 id="firstName"
                 type="text"
-                className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                 placeholder="John"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
@@ -161,7 +157,7 @@ export default function SignUpPage() {
               <input
                 id="lastName"
                 type="text"
-                className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                 placeholder="Doe"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
@@ -177,7 +173,7 @@ export default function SignUpPage() {
             <input
               id="email"
               type="email"
-              className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+              className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
               placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -193,7 +189,7 @@ export default function SignUpPage() {
               <input
                 id="password"
                 type="password"
-                className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -206,7 +202,7 @@ export default function SignUpPage() {
               <input
                 id="phone"
                 type="tel"
-                className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                 placeholder="+23480..."
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
@@ -221,7 +217,7 @@ export default function SignUpPage() {
             <label htmlFor="role" className="text-sm font-semibold text-on-surface">Registering As</label>
             <select
               id="role"
-              className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15 cursor-pointer"
+              className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 cursor-pointer"
               value={role}
               onChange={(e) => {
                 setRole(e.target.value as any);
@@ -238,13 +234,13 @@ export default function SignUpPage() {
           {/* Conditional Sections */}
           {role === 'LANDLORD' && (
             <div className="flex flex-col gap-4 border-t border-outline-variant pt-4 mt-2">
-              <h2 className="text-base font-bold text-brand-deep-slate pb-1">Landlord Payout Settlement Details</h2>
+              <h2 className="text-base font-bold text-brand-deep-slate pb-1 font-sans">Landlord Payout Settlement Details</h2>
               
               <div className="flex flex-col gap-2">
                 <label htmlFor="bankCode" className="text-sm font-semibold text-on-surface">Settlement Bank</label>
                 <select
                   id="bankCode"
-                  className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15 cursor-pointer"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 cursor-pointer"
                   value={bankCode}
                   onChange={(e) => setBankCode(e.target.value)}
                   required
@@ -266,7 +262,7 @@ export default function SignUpPage() {
                   type="text"
                   pattern="\d{10}"
                   maxLength={10}
-                  className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                   placeholder="10-digit Account Number"
                   value={bankAccountNumber}
                   onChange={(e) => setBankAccountNumber(e.target.value.replace(/\D/g, ''))}
@@ -280,7 +276,7 @@ export default function SignUpPage() {
                 <input
                   id="accountName"
                   type="text"
-                  className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                   placeholder="Account Name (e.g. John Doe Enterprises)"
                   value={bankAccountName}
                   onChange={(e) => setBankAccountName(e.target.value)}
@@ -293,7 +289,7 @@ export default function SignUpPage() {
 
           {role === 'TENANT' && (
             <div className="flex flex-col gap-4 border-t border-outline-variant pt-4 mt-2">
-              <h2 className="text-base font-bold text-brand-deep-slate pb-1">Tenant Verification Details</h2>
+              <h2 className="text-base font-bold text-brand-deep-slate pb-1 font-sans">Tenant Verification Details</h2>
               <div className="flex flex-col gap-2">
                 <label htmlFor="bvn" className="text-sm font-semibold text-on-surface">Bank Verification Number (BVN)</label>
                 <input
@@ -301,7 +297,7 @@ export default function SignUpPage() {
                   type="text"
                   pattern="\d{11}"
                   maxLength={11}
-                  className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                   placeholder="11-digit BVN"
                   value={bvn}
                   onChange={(e) => setBvn(e.target.value.replace(/\D/g, ''))}
@@ -314,7 +310,7 @@ export default function SignUpPage() {
 
           <button
             type="submit"
-            className="mt-2 min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded-[6px] cursor-pointer transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 disabled:bg-surface-dim disabled:text-on-surface-variant disabled:cursor-not-allowed flex items-center justify-center"
+            className="mt-2 min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded cursor-pointer transition duration-150 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 disabled:bg-surface-dim disabled:text-on-surface-variant disabled:cursor-not-allowed flex items-center justify-center font-sans"
             disabled={isLoading}
           >
             {isLoading ? 'Creating Account...' : 'Sign Up'}
@@ -323,7 +319,7 @@ export default function SignUpPage() {
 
         <div className="text-center mt-6 text-sm text-on-surface-variant">
           Already have an account?{' '}
-          <Link href="/login" className="text-brand-blue hover:underline font-semibold cursor-pointer">
+          <Link href="/login" className="text-brand-blue hover:underline font-semibold cursor-pointer focus:outline-none focus-visible:underline focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded px-1">
             Sign In
           </Link>
         </div>

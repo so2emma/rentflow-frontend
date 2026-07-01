@@ -3,54 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { api } from '@/services/api';
-
-interface Property {
-  id: string;
-  name: string;
-  address: string;
-  propertyCode: string;
-}
-
-interface Unit {
-  id: string;
-  propertyId: string;
-  propertyName: string;
-  unitNumber: string;
-  baseRent: number;
-  status: string; // 'VACANT' | 'OCCUPIED' | 'MAINTENANCE'
-}
-
-interface Lease {
-  id: string;
-  tenantId: string;
-  tenantName: string;
-  unitId: string;
-  unitNumber: string;
-  propertyName: string;
-  startDate: string;
-  endDate: string;
-  gracePeriodDays: number;
-  status: string;
-}
-
-interface MockTenant {
-  id: string;
-  name: string;
-  email: string;
-}
-
-const MOCK_TENANTS: MockTenant[] = [
-  { id: '87915574-d4b7-4b77-8027-2c938d2f1f0a', name: 'Jane Doe', email: 'jane@tenant.com' },
-  { id: '929c5e31-5089-4d2d-94c6-4b8a8bcf44ee', name: 'Bob Smith', email: 'bob@tenant.com' },
-  { id: 'c0a80101-7fa8-11ec-90d6-0242ac120003', name: 'Alice Johnson', email: 'alice@tenant.com' },
-];
+import { getProperties, createProperty, getUnits, createUnit } from '@/lib/api/properties';
+import { getTenants } from '@/lib/api/tenants';
+import { getLeases, createLease } from '@/lib/api/leases';
+import { PropertyResponse, UnitResponse, LeaseResponse, TenantResponse } from '@/types/api';
 
 export default function LandlordDashboardPage() {
   const router = useRouter();
 
   // Retrieve user details safely
-  const [user, setUser] = useState<{ email: string; roles: string[] } | null>(() => {
+  const [user] = useState<{ email: string; roles: string[] } | null>(() => {
     if (typeof window !== 'undefined') {
       const userString = localStorage.getItem('rentflow_user');
       return userString ? JSON.parse(userString) : null;
@@ -62,10 +24,10 @@ export default function LandlordDashboardPage() {
   const [activeTab, setActiveTab] = useState<'properties' | 'units' | 'leases'>('properties');
 
   // Lists & States
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [leases, setLeases] = useState<Lease[]>([]);
-  const [tenants, setTenants] = useState<MockTenant[]>([]);
+  const [properties, setProperties] = useState<PropertyResponse[]>([]);
+  const [units, setUnits] = useState<UnitResponse[]>([]);
+  const [leases, setLeases] = useState<LeaseResponse[]>([]);
+  const [tenants, setTenants] = useState<TenantResponse[]>([]);
 
   // Add Property Form State
   const [propName, setPropName] = useState('');
@@ -94,13 +56,9 @@ export default function LandlordDashboardPage() {
     const localUnits = localStorage.getItem('rentflow_units');
     const localLeases = localStorage.getItem('rentflow_leases');
 
-    const initialProps = localProps ? JSON.parse(localProps) : [];
-    const initialUnits = localUnits ? JSON.parse(localUnits) : [];
-    const initialLeases = localLeases ? JSON.parse(localLeases) : [];
-
-    setProperties(initialProps);
-    setUnits(initialUnits);
-    setLeases(initialLeases);
+    if (localProps) setProperties(JSON.parse(localProps));
+    if (localUnits) setUnits(JSON.parse(localUnits));
+    if (localLeases) setLeases(JSON.parse(localLeases));
 
     fetchPropertiesFromBackend();
     fetchTenantsFromBackend();
@@ -110,28 +68,9 @@ export default function LandlordDashboardPage() {
 
   const fetchPropertiesFromBackend = async () => {
     try {
-      const response = await api.get('/api/v1/properties');
-      if (response.data && Array.isArray(response.data)) {
-        const backendProps: Property[] = response.data.map((item: any, idx: number) => {
-          if (typeof item === 'string') {
-            return {
-              id: `be-prop-${idx}`,
-              name: item,
-              address: 'Fetched from Backend',
-              propertyCode: `BE-PROP-${idx}`,
-            };
-          }
-          return {
-            id: item.id || `be-prop-${idx}`,
-            name: item.name || 'Unnamed Property',
-            address: item.address || '',
-            propertyCode: item.propertyCode || '',
-          };
-        });
-
-        setProperties(backendProps);
-        localStorage.setItem('rentflow_props', JSON.stringify(backendProps));
-      }
+      const data = await getProperties();
+      setProperties(data);
+      localStorage.setItem('rentflow_props', JSON.stringify(data));
     } catch (e) {
       console.warn('Could not fetch properties from backend, using local store:', e);
     }
@@ -139,16 +78,8 @@ export default function LandlordDashboardPage() {
 
   const fetchTenantsFromBackend = async () => {
     try {
-      const response = await api.get('/api/v1/tenants');
-      if (response.data && Array.isArray(response.data)) {
-        const backendTenants: MockTenant[] = response.data.map((item: any) => ({
-          id: item.id,
-          name: item.name || 'Unnamed Tenant',
-          email: item.email || '',
-        }));
-
-        setTenants(backendTenants);
-      }
+      const data = await getTenants();
+      setTenants(data);
     } catch (e) {
       console.warn('Could not fetch tenants from backend, using local store:', e);
     }
@@ -156,20 +87,9 @@ export default function LandlordDashboardPage() {
 
   const fetchUnitsFromBackend = async () => {
     try {
-      const response = await api.get('/api/v1/properties/units');
-      if (response.data && Array.isArray(response.data)) {
-        const backendUnits: Unit[] = response.data.map((item: any) => ({
-          id: item.id,
-          propertyId: item.propertyId,
-          propertyName: item.propertyName || 'Unnamed Property',
-          unitNumber: item.unitNumber,
-          baseRent: typeof item.baseRent === 'number' ? item.baseRent : parseFloat(item.baseRent),
-          status: item.status,
-        }));
-
-        setUnits(backendUnits);
-        localStorage.setItem('rentflow_units', JSON.stringify(backendUnits));
-      }
+      const data = await getUnits();
+      setUnits(data);
+      localStorage.setItem('rentflow_units', JSON.stringify(data));
     } catch (e) {
       console.warn('Could not fetch units from backend, using local store:', e);
     }
@@ -177,26 +97,9 @@ export default function LandlordDashboardPage() {
 
   const fetchLeasesFromBackend = async () => {
     try {
-      const response = await api.get('/api/v1/leases');
-      if (response.data && Array.isArray(response.data)) {
-        const backendLeases: Lease[] = response.data.map((item: any) => ({
-          id: item.id,
-          tenantId: item.tenantId,
-          tenantName: item.tenantName || 'Unnamed Tenant',
-          unitId: item.unitId,
-          unitNumber: item.unitNumber || '',
-          propertyName: item.propertyName || 'Unnamed Property',
-          startDate: item.startDate,
-          endDate: item.endDate,
-          gracePeriodDays: item.gracePeriodDays,
-          status: item.status,
-          nombaVactNumber: item.nombaVactNumber,
-          nombaVactBank: item.nombaVactBank,
-        }));
-
-        setLeases(backendLeases);
-        localStorage.setItem('rentflow_leases', JSON.stringify(backendLeases));
-      }
+      const data = await getLeases();
+      setLeases(data);
+      localStorage.setItem('rentflow_leases', JSON.stringify(data));
     } catch (e) {
       console.warn('Could not fetch leases from backend, using local store:', e);
     }
@@ -226,40 +129,32 @@ export default function LandlordDashboardPage() {
     };
 
     try {
-      const response = await api.post('/api/v1/properties', payload);
-
-      const newProp: Property = {
-        id: response.data?.id || `prop-${Date.now()}`,
-        name: response.data?.name || propName,
-        address: response.data?.address || propAddress,
-        propertyCode: response.data?.propertyCode || propCode,
-      };
-
-      updatePropertiesState(newProp);
+      const data = await createProperty(payload);
+      const updated = [...properties, data];
+      setProperties(updated);
+      localStorage.setItem('rentflow_props', JSON.stringify(updated));
       showFeedback('Property added successfully to backend!', 'success');
       resetPropertyForm();
     } catch (error: any) {
       console.error('Property creation backend failed, saving locally:', error);
-
-      const newProp: Property = {
+      
+      const newProp: PropertyResponse = {
         id: `local-prop-${Date.now()}`,
         name: propName,
         address: propAddress,
         propertyCode: propCode,
       };
 
-      updatePropertiesState(newProp);
-      showFeedback('Backend unavailable. Property saved to local browser state!', 'info');
+      const updated = [...properties, newProp];
+      setProperties(updated);
+      localStorage.setItem('rentflow_props', JSON.stringify(updated));
+
+      const errMsg = error.message || 'Backend unavailable.';
+      showFeedback(`${errMsg} Property saved to local browser state!`, 'info');
       resetPropertyForm();
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const updatePropertiesState = (newProp: Property) => {
-    const updated = [...properties, newProp];
-    setProperties(updated);
-    localStorage.setItem('rentflow_props', JSON.stringify(updated));
   };
 
   const resetPropertyForm = () => {
@@ -295,24 +190,25 @@ export default function LandlordDashboardPage() {
     };
 
     try {
-      const response = await api.post(`/api/v1/properties/${unitPropId}/units`, payload);
-
-      const newUnit: Unit = {
-        id: response.data?.id || `unit-${Date.now()}`,
+      const data = await createUnit(unitPropId, payload);
+      const newUnit: UnitResponse = {
+        id: data.id,
         propertyId: unitPropId,
         propertyName: propNameStr,
-        unitNumber: response.data?.unitNumber || unitNumber,
-        baseRent: response.data?.baseRent || rent,
-        status: response.data?.status || 'VACANT',
+        unitNumber: data.unitNumber,
+        baseRent: data.baseRent,
+        status: data.status || 'VACANT',
       };
 
-      updateUnitsState(newUnit);
+      const updated = [...units, newUnit];
+      setUnits(updated);
+      localStorage.setItem('rentflow_units', JSON.stringify(updated));
       showFeedback('Unit added successfully to backend!', 'success');
       resetUnitForm();
     } catch (error: any) {
       console.error('Unit creation backend failed, saving locally:', error);
 
-      const newUnit: Unit = {
+      const newUnit: UnitResponse = {
         id: `local-unit-${Date.now()}`,
         propertyId: unitPropId,
         propertyName: propNameStr,
@@ -321,18 +217,16 @@ export default function LandlordDashboardPage() {
         status: 'VACANT',
       };
 
-      updateUnitsState(newUnit);
-      showFeedback('Backend unavailable. Unit saved to local browser state!', 'info');
+      const updated = [...units, newUnit];
+      setUnits(updated);
+      localStorage.setItem('rentflow_units', JSON.stringify(updated));
+
+      const errMsg = error.message || 'Backend unavailable.';
+      showFeedback(`${errMsg} Unit saved to local browser state!`, 'info');
       resetUnitForm();
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const updateUnitsState = (newUnit: Unit) => {
-    const updated = [...units, newUnit];
-    setUnits(updated);
-    localStorage.setItem('rentflow_units', JSON.stringify(updated));
   };
 
   const resetUnitForm = () => {
@@ -369,41 +263,54 @@ export default function LandlordDashboardPage() {
     };
 
     try {
-      const response = await api.post('/api/v1/leases', payload);
-
-      const newLease: Lease = {
-        id: response.data?.id || `lease-${Date.now()}`,
+      const data = await createLease(payload);
+      const newLease: LeaseResponse = {
+        id: data.id,
         tenantId: leaseTenantId,
         tenantName: tenantNameStr,
         unitId: leaseUnitId,
         unitNumber: unitNoStr,
         propertyName: propNameStr,
-        startDate: response.data?.startDate || leaseStartDate,
-        endDate: response.data?.endDate || leaseEndDate,
-        gracePeriodDays: response.data?.gracePeriodDays || graceDays,
-        status: response.data?.status || 'ACTIVE',
+        startDate: data.startDate,
+        endDate: data.endDate || '',
+        gracePeriodDays: data.gracePeriodDays ?? graceDays,
+        status: data.status || 'ACTIVE',
+        nombaVactNumber: data.nombaVactNumber,
+        nombaVactBank: data.nombaVactBank,
+        nombaVactRef: data.nombaVactRef,
       };
 
-      updateLeasesState(newLease, leaseUnitId);
+      const updatedLeases = [...leases, newLease];
+      setLeases(updatedLeases);
+      localStorage.setItem('rentflow_leases', JSON.stringify(updatedLeases));
 
-      const vactNum = response.data?.nombaVactNumber || '9923847582';
-      const vactBank = response.data?.nombaVactBank || 'Wema Bank';
-      const vactRef = response.data?.nombaVactRef || `RF_LSE_${newLease.id.replace(/-/g, '')}`;
+      const updatedUnits = units.map((u) => {
+        if (u.id === leaseUnitId) {
+          return { ...u, status: 'OCCUPIED' };
+        }
+        return u;
+      });
+      setUnits(updatedUnits);
+      localStorage.setItem('rentflow_units', JSON.stringify(updatedUnits));
+
+      const vactNum = data.nombaVactNumber || '9923847582';
+      const vactBank = data.nombaVactBank || 'Wema Bank';
+      const vactRef = data.nombaVactRef || `RF_LSE_${newLease.id.replace(/-/g, '')}`;
 
       const feedbackElement = (
-        <div className="flex flex-col gap-2 w-full text-left">
-          <div className="font-semibold">Lease agreement created successfully in backend!</div>
-          <div className="mt-1 text-xs border-t border-brand-emerald-green/20 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-2 w-full text-left font-sans">
+          <div className="font-semibold text-on-secondary-container">Lease agreement created successfully in backend!</div>
+          <div className="mt-1 text-xs border-t border-on-secondary-container/20 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <span className="block text-[10px] uppercase font-bold text-on-surface-variant">Bank Name</span>
+              <span className="block text-[10px] uppercase font-bold opacity-75">Bank Name</span>
               <span className="font-semibold text-brand-deep-slate">{vactBank}</span>
             </div>
             <div>
-              <span className="block text-[10px] uppercase font-bold text-on-surface-variant">Account Number</span>
+              <span className="block text-[10px] uppercase font-bold opacity-75">Account Number</span>
               <span className="font-mono font-bold text-brand-deep-slate">{vactNum}</span>
             </div>
             <div>
-              <span className="block text-[10px] uppercase font-bold text-on-surface-variant">Account Ref</span>
+              <span className="block text-[10px] uppercase font-bold opacity-75">Account Ref</span>
               <span className="font-mono text-brand-deep-slate">{vactRef}</span>
             </div>
           </div>
@@ -415,7 +322,7 @@ export default function LandlordDashboardPage() {
     } catch (error: any) {
       console.error('Lease creation backend failed, saving locally:', error);
 
-      const newLease: Lease = {
+      const newLease: LeaseResponse = {
         id: `local-lease-${Date.now()}`,
         tenantId: leaseTenantId,
         tenantName: tenantNameStr,
@@ -428,26 +335,38 @@ export default function LandlordDashboardPage() {
         status: 'PENDING_VIRTUAL_ACCOUNT',
       };
 
-      updateLeasesState(newLease, leaseUnitId);
+      const updatedLeases = [...leases, newLease];
+      setLeases(updatedLeases);
+      localStorage.setItem('rentflow_leases', JSON.stringify(updatedLeases));
+
+      const updatedUnits = units.map((u) => {
+        if (u.id === leaseUnitId) {
+          return { ...u, status: 'OCCUPIED' };
+        }
+        return u;
+      });
+      setUnits(updatedUnits);
+      localStorage.setItem('rentflow_units', JSON.stringify(updatedUnits));
 
       const vactNum = '9923847582';
       const vactBank = 'Wema Bank';
       const vactRef = `RF_LSE_${newLease.id.replace(/-/g, '')}`;
 
+      const errMsg = error.message || 'Backend unavailable.';
       const feedbackElement = (
-        <div className="flex flex-col gap-2 w-full text-left">
-          <div className="font-semibold">Backend unavailable. Lease saved to local browser state!</div>
-          <div className="mt-1 text-xs border-t border-indigo-500/20 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-2 w-full text-left font-sans">
+          <div className="font-semibold">{errMsg} Lease saved to local browser state!</div>
+          <div className="mt-1 text-xs border-t border-[#001a42]/20 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <span className="block text-[10px] uppercase font-bold text-[#001a42] opacity-85">Bank Name (Mock)</span>
+              <span className="block text-[10px] uppercase font-bold opacity-75">Bank Name (Mock)</span>
               <span className="font-semibold text-brand-deep-slate">{vactBank}</span>
             </div>
             <div>
-              <span className="block text-[10px] uppercase font-bold text-[#001a42] opacity-85">Account Number (Mock)</span>
+              <span className="block text-[10px] uppercase font-bold opacity-75">Account Number (Mock)</span>
               <span className="font-mono font-bold text-brand-deep-slate">{vactNum}</span>
             </div>
             <div>
-              <span className="block text-[10px] uppercase font-bold text-[#001a42] opacity-85">Account Ref (Mock)</span>
+              <span className="block text-[10px] uppercase font-bold opacity-75">Account Ref (Mock)</span>
               <span className="font-mono text-brand-deep-slate">{vactRef}</span>
             </div>
           </div>
@@ -459,21 +378,6 @@ export default function LandlordDashboardPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const updateLeasesState = (newLease: Lease, unitId: string) => {
-    const updatedLeases = [...leases, newLease];
-    setLeases(updatedLeases);
-    localStorage.setItem('rentflow_leases', JSON.stringify(updatedLeases));
-
-    const updatedUnits = units.map((u) => {
-      if (u.id === unitId) {
-        return { ...u, status: 'OCCUPIED' };
-      }
-      return u;
-    });
-    setUnits(updatedUnits);
-    localStorage.setItem('rentflow_units', JSON.stringify(updatedUnits));
   };
 
   const resetLeaseForm = () => {
@@ -491,26 +395,33 @@ export default function LandlordDashboardPage() {
     }, 10000);
   };
 
+  // Stats Calculations for Metric Cards
+  const totalProperties = properties.length;
+  const totalUnits = units.length;
+  const occupiedUnits = units.filter((u) => u.status === 'OCCUPIED').length;
+  const vacantUnits = units.filter((u) => u.status === 'VACANT').length;
+  const activeLeases = leases.filter((l) => l.status === 'ACTIVE').length;
+
   return (
     <ProtectedRoute allowedRole="ROLE_LANDLORD">
-      <div className="max-w-[1440px] mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 min-h-screen">
+      <div className="max-w-[1440px] mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 min-h-screen bg-background">
 
         {/* Sidebar Navigation */}
-        <aside className="bg-brand-deep-slate text-on-primary rounded-lg p-6 flex flex-col justify-between lg:h-[calc(100vh-64px)] lg:sticky lg:top-8">
+        <aside className="bg-brand-deep-slate text-on-primary rounded-lg p-6 flex flex-col justify-between lg:h-[calc(100vh-64px)] lg:sticky lg:top-8 shadow-sm">
           <div>
-            <div className="text-2xl font-bold tracking-tight mb-6">RentFlow</div>
+            <div className="text-2xl font-bold tracking-tight mb-6 font-sans">RentFlow</div>
             {user && (
-              <div className="mb-6 text-xs opacity-80">
-                <p>Connected Landlord</p>
-                <strong className="block text-sm mt-0.5 truncate">{user.email}</strong>
+              <div className="mb-6 text-xs opacity-80 border-b border-white/10 pb-4">
+                <p className="font-sans text-[10px] uppercase tracking-wider text-[#7c839b]">Connected Landlord</p>
+                <strong className="block text-sm mt-0.5 truncate font-sans font-semibold text-white">{user.email}</strong>
               </div>
             )}
             <nav className="flex flex-col gap-2">
               <button
                 onClick={() => { setActiveTab('properties'); setStatusMessage(null); }}
-                className={`text-left px-3.5 py-2.5 rounded-[6px] font-semibold text-sm transition ${
+                className={`text-left px-3.5 py-2.5 rounded font-semibold text-sm transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 ${
                   activeTab === 'properties'
-                    ? 'bg-white/10 text-on-primary border-l-3 border-brand-emerald-green'
+                    ? 'bg-white/10 text-on-primary border-l-4 border-brand-emerald-green'
                     : 'text-[#7c839b] hover:bg-white/5 hover:text-white'
                 }`}
               >
@@ -518,9 +429,9 @@ export default function LandlordDashboardPage() {
               </button>
               <button
                 onClick={() => { setActiveTab('units'); setStatusMessage(null); }}
-                className={`text-left px-3.5 py-2.5 rounded-[6px] font-semibold text-sm transition ${
+                className={`text-left px-3.5 py-2.5 rounded font-semibold text-sm transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 ${
                   activeTab === 'units'
-                    ? 'bg-white/10 text-on-primary border-l-3 border-brand-emerald-green'
+                    ? 'bg-white/10 text-on-primary border-l-4 border-brand-emerald-green'
                     : 'text-[#7c839b] hover:bg-white/5 hover:text-white'
                 }`}
               >
@@ -528,9 +439,9 @@ export default function LandlordDashboardPage() {
               </button>
               <button
                 onClick={() => { setActiveTab('leases'); setStatusMessage(null); }}
-                className={`text-left px-3.5 py-2.5 rounded-[6px] font-semibold text-sm transition ${
+                className={`text-left px-3.5 py-2.5 rounded font-semibold text-sm transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 ${
                   activeTab === 'leases'
-                    ? 'bg-white/10 text-on-primary border-l-3 border-brand-emerald-green'
+                    ? 'bg-white/10 text-on-primary border-l-4 border-brand-emerald-green'
                     : 'text-[#7c839b] hover:bg-white/5 hover:text-white'
                 }`}
               >
@@ -540,7 +451,7 @@ export default function LandlordDashboardPage() {
           </div>
           <button
             onClick={handleLogout}
-            className="mt-6 bg-transparent border border-white/20 text-on-primary py-2.5 rounded-[6px] cursor-pointer font-semibold hover:bg-white/10 transition"
+            className="mt-6 bg-transparent border border-white/20 text-on-primary py-2.5 rounded cursor-pointer font-semibold text-sm hover:bg-white/10 transition duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
           >
             Sign Out
           </button>
@@ -550,22 +461,45 @@ export default function LandlordDashboardPage() {
         <main className="flex flex-col gap-6">
           <div className="flex justify-between items-center border-b border-outline-variant pb-4">
             <div className="headerInfo">
-              <h1 className="text-2xl md:text-3xl font-semibold text-brand-deep-slate">Landlord Portal</h1>
+              <h1 className="text-2xl md:text-3xl font-semibold text-brand-deep-slate font-sans">Landlord Portal</h1>
               <p className="text-sm text-on-surface-variant">Define properties, units, and assign tenant leases with automated ledger splitting.</p>
             </div>
           </div>
 
+          {/* Metric Cards Section */}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-5 flex flex-col gap-1.5 shadow-sm transition hover:shadow-md duration-150">
+              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider font-sans">Properties Portfolio</div>
+              <div className="text-3xl font-bold text-brand-deep-slate font-sans">{totalProperties}</div>
+              <div className="text-xs text-on-surface-variant mt-1 font-sans">Registered physical properties</div>
+            </div>
+
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-5 flex flex-col gap-1.5 shadow-sm transition hover:shadow-md duration-150">
+              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider font-sans">Total Rental Units</div>
+              <div className="text-3xl font-bold text-brand-deep-slate font-sans">{totalUnits}</div>
+              <div className="text-xs text-on-surface-variant mt-1 flex justify-between font-sans">
+                <span>Occupied: <strong className="text-brand-emerald-green">{occupiedUnits}</strong></span>
+                <span>Vacant: <strong className="text-red-500">{vacantUnits}</strong></span>
+              </div>
+            </div>
+
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-5 flex flex-col gap-1.5 shadow-sm transition hover:shadow-md duration-150">
+              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider font-sans">Active Contracts</div>
+              <div className="text-3xl font-bold text-brand-deep-slate font-sans">{activeLeases}</div>
+              <div className="text-xs text-on-surface-variant mt-1 font-sans">Running active tenant agreements</div>
+            </div>
+          </section>
+
           {/* Global Feedback Banner */}
           {statusMessage && (
             <div
-              className={`p-3.5 rounded-[6px] text-sm flex items-start gap-2 border ${
+              className={`p-3.5 rounded text-sm flex items-start gap-2 border font-sans ${
                 statusMessage.type === 'success'
-                  ? 'bg-emerald-500/10 border-brand-emerald-green/30 text-brand-emerald-green'
+                  ? 'bg-secondary-container border-secondary/20 text-on-secondary-container'
                   : statusMessage.type === 'error'
-                  ? 'bg-red-500/10 border-red-500/30 text-red-600'
-                  : 'bg-indigo-500/10 border-indigo-500/30 text-[#001a42]'
+                  ? 'bg-error-container border-error/20 text-on-error-container'
+                  : 'bg-primary-fixed border-primary-fixed-dim/20 text-on-primary-fixed'
               }`}
-              style={statusMessage.type === 'info' ? { backgroundColor: '#dae2fd', borderColor: '#adc6ff', color: '#001a42' } : {}}
               role="alert"
             >
               <div className="w-full">{statusMessage.text}</div>
@@ -575,15 +509,15 @@ export default function LandlordDashboardPage() {
           {/* TAB 1: PROPERTIES */}
           {activeTab === 'properties' && (
             <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-4">Add Property</h2>
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-4 font-sans">Add Property</h2>
                 <form onSubmit={handleAddProperty} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
                     <label htmlFor="propName" className="text-sm font-semibold text-on-surface">Property Name</label>
                     <input
                       id="propName"
                       type="text"
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                       placeholder="e.g. Oakwood Apartments"
                       value={propName}
                       onChange={(e) => setPropName(e.target.value)}
@@ -596,7 +530,7 @@ export default function LandlordDashboardPage() {
                     <input
                       id="propAddress"
                       type="text"
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                       placeholder="e.g. 14 Broad Street, Lagos Island"
                       value={propAddress}
                       onChange={(e) => setPropAddress(e.target.value)}
@@ -609,7 +543,7 @@ export default function LandlordDashboardPage() {
                     <input
                       id="propCode"
                       type="text"
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                       placeholder="e.g. OAK-01"
                       value={propCode}
                       onChange={(e) => setPropCode(e.target.value.toUpperCase())}
@@ -619,7 +553,7 @@ export default function LandlordDashboardPage() {
                   </div>
                   <button
                     type="submit"
-                    className="min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded-[6px] cursor-pointer hover:bg-slate-800 transition disabled:opacity-55"
+                    className="min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded cursor-pointer hover:bg-slate-800 transition duration-150 disabled:opacity-55 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? 'Saving Property...' : 'Save Property'}
@@ -627,13 +561,13 @@ export default function LandlordDashboardPage() {
                 </form>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-4 overflow-x-auto shadow-sm">
+                <table className="w-full text-left border-collapse font-sans">
                   <thead>
                     <tr className="bg-surface-container-low border-b border-outline-variant">
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Property Name</th>
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Code</th>
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Address</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Property Name</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Code</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Address</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-container-low">
@@ -645,8 +579,8 @@ export default function LandlordDashboardPage() {
                       </tr>
                     ) : (
                       properties.map((p) => (
-                        <tr key={p.id} className="hover:bg-surface/50">
-                          <td className="p-3.5 text-sm text-on-surface"><strong>{p.name}</strong></td>
+                        <tr key={p.id} className="hover:bg-surface-container-low/30 transition duration-100 border-b border-slate-100">
+                          <td className="p-3.5 text-sm text-on-surface font-semibold">{p.name}</td>
                           <td className="p-3.5 text-sm font-mono text-on-surface">{p.propertyCode}</td>
                           <td className="p-3.5 text-sm text-on-surface-variant">{p.address}</td>
                         </tr>
@@ -661,14 +595,14 @@ export default function LandlordDashboardPage() {
           {/* TAB 2: UNITS */}
           {activeTab === 'units' && (
             <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-4">Add Unit</h2>
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-4 font-sans">Add Unit</h2>
                 <form onSubmit={handleAddUnit} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
                     <label htmlFor="unitProp" className="text-sm font-semibold text-on-surface">Select Property</label>
                     <select
                       id="unitProp"
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15 cursor-pointer"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 cursor-pointer"
                       value={unitPropId}
                       onChange={(e) => setUnitPropId(e.target.value)}
                       required
@@ -687,7 +621,7 @@ export default function LandlordDashboardPage() {
                     <input
                       id="unitNumber"
                       type="text"
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                       placeholder="e.g. Suite 3B"
                       value={unitNumber}
                       onChange={(e) => setUnitNumber(e.target.value)}
@@ -701,7 +635,7 @@ export default function LandlordDashboardPage() {
                       id="unitBaseRent"
                       type="number"
                       min="1"
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                       placeholder="e.g. 1500000"
                       value={unitBaseRent}
                       onChange={(e) => setUnitBaseRent(e.target.value)}
@@ -711,7 +645,7 @@ export default function LandlordDashboardPage() {
                   </div>
                   <button
                     type="submit"
-                    className="min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded-[6px] cursor-pointer hover:bg-slate-800 transition disabled:opacity-55"
+                    className="min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded cursor-pointer hover:bg-slate-800 transition duration-150 disabled:opacity-55 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? 'Saving Unit...' : 'Save Unit'}
@@ -719,14 +653,14 @@ export default function LandlordDashboardPage() {
                 </form>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-4 overflow-x-auto shadow-sm">
+                <table className="w-full text-left border-collapse font-sans">
                   <thead>
                     <tr className="bg-surface-container-low border-b border-outline-variant">
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Unit Number</th>
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Property</th>
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Base Rent</th>
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Status</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Unit Number</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Property</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Base Rent</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-container-low">
@@ -738,16 +672,18 @@ export default function LandlordDashboardPage() {
                       </tr>
                     ) : (
                       units.map((u) => (
-                        <tr key={u.id} className="hover:bg-surface/50">
-                          <td className="p-3.5 text-sm text-on-surface"><strong>{u.unitNumber}</strong></td>
+                        <tr key={u.id} className="hover:bg-surface-container-low/30 transition duration-100 border-b border-slate-100">
+                          <td className="p-3.5 text-sm text-on-surface font-semibold">{u.unitNumber}</td>
                           <td className="p-3.5 text-sm text-on-surface">{u.propertyName}</td>
-                          <td className="p-3.5 text-sm font-mono text-on-surface tabular-nums">₦ {Number(u.baseRent).toLocaleString()}</td>
+                          <td className="p-3.5 text-sm font-mono tabular-nums text-on-surface">₦ {Number(u.baseRent).toLocaleString()}</td>
                           <td className="p-3.5 text-sm">
                             <span
                               className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${
                                 u.status === 'VACANT' 
-                                  ? 'bg-emerald-500/10 text-brand-emerald-green' 
-                                  : 'bg-amber-500/10 text-[#b45309]'
+                                  ? 'bg-error-container text-on-error-container' 
+                                  : u.status === 'OCCUPIED'
+                                  ? 'bg-secondary-container text-on-secondary-container'
+                                  : 'bg-warning-container text-on-warning-container'
                               }`}
                             >
                               {u.status}
@@ -765,14 +701,14 @@ export default function LandlordDashboardPage() {
           {/* TAB 3: LEASES */}
           {activeTab === 'leases' && (
             <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-4">Create Lease</h2>
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-4 font-sans">Create Lease</h2>
                 <form onSubmit={handleCreateLease} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
                     <label htmlFor="leaseTenant" className="text-sm font-semibold text-on-surface">Select Tenant</label>
                     <select
                       id="leaseTenant"
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15 cursor-pointer"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 cursor-pointer"
                       value={leaseTenantId}
                       onChange={(e) => setLeaseTenantId(e.target.value)}
                       required
@@ -791,7 +727,7 @@ export default function LandlordDashboardPage() {
                     <label htmlFor="leaseUnit" className="text-sm font-semibold text-on-surface">Select Vacant Unit</label>
                     <select
                       id="leaseUnit"
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15 cursor-pointer"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 cursor-pointer"
                       value={leaseUnitId}
                       onChange={(e) => setLeaseUnitId(e.target.value)}
                       required
@@ -814,7 +750,7 @@ export default function LandlordDashboardPage() {
                       <input
                         id="startDate"
                         type="date"
-                        className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                        className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                         value={leaseStartDate}
                         onChange={(e) => setLeaseStartDate(e.target.value)}
                         required
@@ -826,7 +762,7 @@ export default function LandlordDashboardPage() {
                       <input
                         id="endDate"
                         type="date"
-                        className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                        className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                         value={leaseEndDate}
                         onChange={(e) => setLeaseEndDate(e.target.value)}
                         required
@@ -841,7 +777,7 @@ export default function LandlordDashboardPage() {
                       id="gracePeriod"
                       type="number"
                       min="0"
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-[6px] bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded bg-surface-container-lowest text-on-surface outline-none transition duration-150 focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2"
                       value={leaseGracePeriod}
                       onChange={(e) => setLeaseGracePeriod(e.target.value)}
                       required
@@ -851,7 +787,7 @@ export default function LandlordDashboardPage() {
 
                   <button
                     type="submit"
-                    className="min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded-[6px] cursor-pointer hover:bg-slate-800 transition disabled:opacity-55"
+                    className="min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded cursor-pointer hover:bg-slate-800 transition duration-150 disabled:opacity-55 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? 'Creating Lease...' : 'Create Lease'}
@@ -859,14 +795,14 @@ export default function LandlordDashboardPage() {
                 </form>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-4 overflow-x-auto shadow-sm">
+                <table className="w-full text-left border-collapse font-sans">
                   <thead>
                     <tr className="bg-surface-container-low border-b border-outline-variant">
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Tenant</th>
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Property / Unit</th>
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Term</th>
-                      <th className="p-3 text-xs font-semibold uppercase text-on-surface-variant">Status</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Tenant</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Property / Unit</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Term</th>
+                      <th className="p-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-container-low">
@@ -878,17 +814,23 @@ export default function LandlordDashboardPage() {
                       </tr>
                     ) : (
                       leases.map((l) => (
-                        <tr key={l.id} className="hover:bg-surface/50">
-                          <td className="p-3.5 text-sm text-on-surface"><strong>{l.tenantName}</strong></td>
+                        <tr key={l.id} className="hover:bg-surface-container-low/30 transition duration-100 border-b border-slate-100">
+                          <td className="p-3.5 text-sm text-on-surface font-semibold">{l.tenantName}</td>
                           <td className="p-3.5 text-sm text-on-surface">{l.propertyName} - Unit {l.unitNumber}</td>
-                          <td className="p-3.5 text-sm text-on-surface-variant">
+                          <td className="p-3.5 text-sm text-on-surface-variant tabular-nums">
                             {l.startDate} to {l.endDate} <br />
                             <small className="text-on-surface-variant">
                               Grace Period: {l.gracePeriodDays} days
                             </small>
                           </td>
                           <td className="p-3.5 text-sm">
-                            <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-500/10 text-brand-blue">
+                            <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${
+                              l.status === 'ACTIVE'
+                                ? 'bg-secondary-container text-on-secondary-container'
+                                : l.status === 'PENDING_VIRTUAL_ACCOUNT' || l.status === 'PENDING'
+                                ? 'bg-warning-container text-on-warning-container'
+                                : 'bg-error-container text-on-error-container'
+                            }`}>
                               {l.status}
                             </span>
                           </td>

@@ -25,7 +25,7 @@ export default function Home() {
           router.replace('/tenant/dashboard');
           return;
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
