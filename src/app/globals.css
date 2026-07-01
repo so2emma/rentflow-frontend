@@ -8,12 +8,17 @@
     background-color: #f8fafc;
     color: #191c1e;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
     @apply font-sans tracking-tight font-semibold text-primary;
   }
 
-  /* Focus-visible outline replacement for accessibility */
+  /* Numeric columns always use tabular figures */
+  td, .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Focus-visible outline — 2px solid focus-ring with 2px offset, per design.md */
   button:focus-visible,
   a:focus-visible,
   input:focus-visible,
@@ -21,13 +26,94 @@
   textarea:focus-visible,
   [role="button"]:focus-visible,
   [tabindex]:focus-visible {
-    outline: 2px solid #3b82f6; /* focus-ring color */
+    outline: 2px solid #3b82f6;
     outline-offset: 2px;
   }
 }
 
+@layer components {
+  /* ── Metric card ── */
+  .metric-card {
+    @apply bg-surface-container-lowest border border-outline-variant rounded-md p-5
+           flex flex-col gap-1.5 shadow-sm transition-shadow duration-base ease-standard;
+  }
+  .metric-card:hover {
+    box-shadow: 0px 4px 12px rgba(15, 23, 42, 0.05);
+  }
+  .metric-card-label {
+    @apply text-label-md text-on-surface-variant uppercase tracking-wider;
+  }
+  .metric-card-value {
+    @apply text-3xl font-bold text-brand-deep-slate font-mono tabular-nums;
+  }
+
+  /* ── Data table ── */
+  .data-table {
+    @apply w-full text-left border-collapse font-sans;
+  }
+  .data-table thead tr {
+    @apply bg-surface-container-low border-b border-outline-variant;
+  }
+  .data-table th {
+    @apply p-3.5 text-label-md text-on-surface-variant uppercase tracking-wider;
+  }
+  .data-table tbody tr {
+    @apply border-b border-surface-container-low transition-colors duration-base ease-standard;
+  }
+  .data-table tbody tr:hover {
+    @apply bg-surface-container-low/40;
+  }
+  .data-table td {
+    @apply p-3.5 text-sm text-on-surface;
+  }
+
+  /* ── Form field ── */
+  .form-input {
+    @apply w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant
+           rounded bg-surface-container-lowest text-on-surface outline-none
+           transition-colors duration-base ease-standard
+           focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .form-input-error {
+    @apply border-error focus:border-error focus:ring-error/30;
+  }
+  .form-label {
+    @apply text-sm font-semibold text-on-surface;
+  }
+
+  /* ── Sidebar nav item ── */
+  .sidebar-nav-item {
+    @apply text-left px-3.5 py-2.5 rounded-sm font-semibold text-sm
+           transition-all duration-base ease-standard outline-none
+           focus-visible:ring-2 focus-visible:ring-focus-ring
+           focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900;
+  }
+  .sidebar-nav-item-active {
+    @apply bg-white/10 text-on-primary border-l-4 border-brand-emerald-green;
+  }
+  .sidebar-nav-item-inactive {
+    @apply text-slate-400 hover:bg-white/5 hover:text-white border-l-4 border-transparent;
+  }
+
+  /* ── Card / elevated container ── */
+  .card {
+    @apply bg-surface-container-lowest border border-outline-variant rounded-md shadow-sm;
+  }
+  .card-hover {
+    @apply transition-shadow duration-base ease-standard;
+  }
+  .card-hover:hover {
+    box-shadow: 0px 4px 12px rgba(15, 23, 42, 0.05);
+  }
+}
+
 @layer utilities {
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
+  /* Standard easing helpers */
+  .ease-standard {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .ease-emphasized {
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
   }
 }

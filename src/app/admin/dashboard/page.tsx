@@ -3,6 +3,12 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { DashboardShell } from '@/components/layout/DashboardShell';
+import { UsersIcon, ChartIcon, SettingsIcon } from '@/components/layout/Sidebar';
+import { MetricCard } from '@/components/ui/MetricCard';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Button } from '@/components/ui/Button';
+import { getUser, clearSession } from '@/lib/auth/session';
 
 interface LandlordVetInfo {
   id: string;
@@ -44,10 +50,18 @@ const INITIAL_LANDLORDS: LandlordVetInfo[] = [
   },
 ];
 
+const NAV_ITEMS = [
+  { id: 'overview', label: 'Overview & Vetting', icon: <UsersIcon /> },
+  { id: 'logs', label: 'System Logs', icon: <ChartIcon /> },
+  { id: 'settings', label: 'Settings & Fees', icon: <SettingsIcon /> },
+];
+
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const user = getUser();
 
-  // Retrieve landlords with local storage fallback
+  const [activeTab, setActiveTab] = useState('overview');
+
   const [landlords, setLandlords] = useState<LandlordVetInfo[]>(() => {
     if (typeof window !== 'undefined') {
       const local = localStorage.getItem('rentflow_admin_landlords');
@@ -56,143 +70,113 @@ export default function AdminDashboardPage() {
     return INITIAL_LANDLORDS;
   });
 
-  // Retrieve user details from localStorage safely
-  const [user] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const userString = localStorage.getItem('rentflow_user');
-      return userString ? JSON.parse(userString) : null;
-    }
-    return null;
-  });
-
-  const handleLogout = () => {
-    localStorage.removeItem('rentflow_token');
-    localStorage.removeItem('rentflow_user');
+  function handleLogout() {
+    clearSession();
     router.replace('/login');
-  };
+  }
 
-  const handleApprove = (id: string) => {
-    const updated = landlords.map((l) => (l.id === id ? { ...l, status: 'VERIFIED' as const } : l));
+  function handleApprove(id: string) {
+    const updated = landlords.map((l) =>
+      l.id === id ? { ...l, status: 'VERIFIED' as const } : l
+    );
     setLandlords(updated);
     localStorage.setItem('rentflow_admin_landlords', JSON.stringify(updated));
-  };
+  }
 
-  // Metrics
   const pendingCount = landlords.filter((l) => l.status === 'PENDING').length;
   const verifiedCount = landlords.filter((l) => l.status === 'VERIFIED').length;
 
   return (
     <ProtectedRoute allowedRole="ROLE_ADMIN">
-      <div className="max-w-[1440px] mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 min-h-screen bg-background">
-        
-        {/* Sidebar Navigation */}
-        <aside className="bg-brand-deep-slate text-on-primary rounded-lg p-6 flex flex-col justify-between lg:h-[calc(100vh-64px)] lg:sticky lg:top-8 shadow-sm">
-          <div>
-            <div className="text-2xl font-bold tracking-tight mb-6 font-sans">RentFlow Admin</div>
-            {user && (
-              <div className="mb-6 text-xs opacity-80 border-b border-white/10 pb-4">
-                <p className="font-sans text-[10px] uppercase tracking-wider text-[#7c839b]">Connected Operator</p>
-                <strong className="block text-sm mt-0.5 truncate font-sans font-semibold text-white">{user.email}</strong>
-              </div>
-            )}
-            <nav className="flex flex-col gap-2">
-              <button className="bg-white/10 text-on-primary text-left px-3.5 py-2.5 rounded font-semibold text-sm border-l-4 border-brand-emerald-green transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900">
-                Overview &amp; Vetting
-              </button>
-              <button className="text-left px-3.5 py-2.5 text-[#7c839b] hover:bg-white/5 hover:text-white rounded font-semibold text-sm transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900">
-                System Logs
-              </button>
-              <button className="text-left px-3.5 py-2.5 text-[#7c839b] hover:bg-white/5 hover:text-white rounded font-semibold text-sm transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900">
-                Payout Runs
-              </button>
-              <button className="text-left px-3.5 py-2.5 text-[#7c839b] hover:bg-white/5 hover:text-white rounded font-semibold text-sm transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900">
-                Settings &amp; Fees
-              </button>
-            </nav>
-          </div>
-          <button 
-            onClick={handleLogout} 
-            className="mt-6 bg-transparent border border-white/20 text-on-primary py-2.5 rounded cursor-pointer font-semibold text-sm hover:bg-white/10 transition duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-          >
-            Sign Out
-          </button>
-        </aside>
+      <DashboardShell
+        sidebarTitle="RentFlow Admin"
+        userLabel="Connected Operator"
+        userEmail={user?.email}
+        navItems={NAV_ITEMS}
+        activeItem={activeTab}
+        onNavChange={setActiveTab}
+        onSignOut={handleLogout}
+      >
+        {/* Page header */}
+        <div className="flex flex-col gap-1 border-b border-outline-variant pb-4">
+          <h1 className="text-2xl md:text-3xl font-semibold text-brand-deep-slate">
+            Administrator Control Panel
+          </h1>
+          <p className="text-sm text-on-surface-variant">
+            Vet registered landlords, manage transaction ledgers, and trigger settlement payout runs.
+          </p>
+        </div>
 
-        {/* Main Content Area */}
-        <main className="flex flex-col gap-6">
-          <div className="flex justify-between items-center border-b border-outline-variant pb-4">
-            <div className="headerInfo">
-              <h1 className="text-2xl md:text-3xl font-semibold text-brand-deep-slate font-sans">Administrator Control Panel</h1>
-              <p className="text-sm text-on-surface-variant">Vet registered landlords, manage transaction ledgers, and trigger settlement payout runs.</p>
-            </div>
-          </div>
-
-          {/* Overview Metrics */}
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-5 flex flex-col gap-1.5 shadow-sm transition hover:shadow-md duration-150 font-sans">
-              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Pending Landlord Approvals</div>
-              <div className={`text-3xl font-bold font-mono tabular-nums ${pendingCount > 0 ? 'text-warning' : 'text-brand-deep-slate'}`}>
+        {/* Metric cards */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4" aria-label="Platform metrics">
+          <MetricCard
+            label="Pending Landlord Approvals"
+            value={
+              <span className={pendingCount > 0 ? 'text-warning' : 'text-brand-deep-slate'}>
                 {pendingCount}
-              </div>
-            </div>
+              </span>
+            }
+            sub={pendingCount > 0 ? 'Require review' : 'All up to date'}
+          />
+          <MetricCard
+            label="Vetted Platform Landlords"
+            value={verifiedCount}
+            sub="Approved for disbursement"
+          />
+          <MetricCard
+            label="Total Payout Value Run"
+            value="₦ 3,450,000"
+            sub="Cumulative disbursement total"
+          />
+        </section>
 
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-5 flex flex-col gap-1.5 shadow-sm transition hover:shadow-md duration-150 font-sans">
-              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Vetted Platform Landlords</div>
-              <div className="text-3xl font-bold text-brand-deep-slate font-mono tabular-nums">{verifiedCount}</div>
+        {/* Landlord vetting table */}
+        {activeTab === 'overview' && (
+          <section
+            className="bg-surface-container-lowest border border-outline-variant rounded-md shadow-sm overflow-hidden"
+            aria-labelledby="vetting-title"
+          >
+            <div className="p-6 border-b border-outline-variant">
+              <h2 id="vetting-title" className="text-lg font-semibold text-brand-deep-slate">
+                Landlord Payout Settlement Verification
+              </h2>
             </div>
-
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-5 flex flex-col gap-1.5 shadow-sm transition hover:shadow-md duration-150 font-sans">
-              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Total Payout Value Run</div>
-              <div className="text-3xl font-bold text-brand-deep-slate font-mono tabular-nums">₦ 3,450,000.00</div>
-            </div>
-          </section>
-
-          {/* Landlord Vetting List */}
-          <section className="bg-surface-container-lowest border border-outline-variant rounded-md p-6 shadow-sm font-sans">
-            <h2 className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-4">Landlord Payout Settlement Verification</h2>
-            <div className="overflow-x-auto border border-outline-variant rounded-md">
-              <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse font-sans">
                 <thead>
                   <tr className="bg-surface-container-low border-b border-outline-variant">
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Landlord Details</th>
+                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Landlord</th>
                     <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Settlement Bank</th>
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Account Number</th>
+                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Account No.</th>
                     <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Account Name</th>
                     <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Status</th>
                     <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-surface-container-low">
                   {landlords.map((l) => (
-                    <tr key={l.id} className="hover:bg-surface-container-low/30 transition duration-100 border-b border-slate-100">
-                      <td className="p-3.5 text-sm">
-                        <strong className="text-on-surface">{l.name}</strong>
+                    <tr key={l.id} className="hover:bg-surface-container-low/40 transition-colors duration-[150ms]">
+                      <td className="p-3.5">
+                        <span className="block text-sm font-semibold text-on-surface">{l.name}</span>
                         <span className="block text-xs text-on-surface-variant mt-0.5">{l.email}</span>
                       </td>
                       <td className="p-3.5 text-sm text-on-surface">{l.bankName}</td>
                       <td className="p-3.5 text-sm font-mono tabular-nums text-on-surface">{l.accountNumber}</td>
                       <td className="p-3.5 text-sm text-on-surface">{l.accountName}</td>
-                      <td className="p-3.5 text-sm">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${
-                            l.status === 'VERIFIED'
-                              ? 'bg-secondary-container text-on-secondary-container'
-                              : 'bg-warning-container text-on-warning-container'
-                          }`}
-                        >
-                          {l.status}
-                        </span>
+                      <td className="p-3.5">
+                        <StatusBadge status={l.status} />
                       </td>
-                      <td className="p-3.5 text-sm">
+                      <td className="p-3.5">
                         {l.status === 'PENDING' ? (
-                          <button
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => handleApprove(l.id)}
-                            className="bg-secondary text-on-secondary py-1 px-3 text-xs font-semibold rounded hover:bg-emerald-600 cursor-pointer transition duration-150 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2"
                           >
                             Verify Details
-                          </button>
+                          </Button>
                         ) : (
-                          <span className="text-xs text-brand-emerald-green font-semibold bg-secondary-container/50 px-2 py-0.5 rounded">
+                          <span className="text-xs text-on-secondary-container bg-secondary-container px-2.5 py-1 rounded-full font-semibold">
                             Approved
                           </span>
                         )}
@@ -203,8 +187,22 @@ export default function AdminDashboardPage() {
               </table>
             </div>
           </section>
-        </main>
-      </div>
+        )}
+
+        {/* Placeholder sections for other tabs */}
+        {activeTab === 'logs' && (
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-12 text-center text-on-surface-variant shadow-sm">
+            <p className="text-sm font-semibold">System Logs</p>
+            <p className="text-xs mt-1">Coming soon — audit trail and system event logs.</p>
+          </div>
+        )}
+        {activeTab === 'settings' && (
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-12 text-center text-on-surface-variant shadow-sm">
+            <p className="text-sm font-semibold">Settings &amp; Fees</p>
+            <p className="text-xs mt-1">Coming soon — platform fee configuration and payout schedules.</p>
+          </div>
+        )}
+      </DashboardShell>
     </ProtectedRoute>
   );
 }
