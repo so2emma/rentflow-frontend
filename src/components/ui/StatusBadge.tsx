@@ -62,27 +62,41 @@ function resolveVariant(status: StatusVariant): 'success' | 'warning' | 'error' 
   return 'error';
 }
 
-const variantClasses: Record<'success' | 'warning' | 'error', string> = {
-  success: 'bg-secondary-container text-on-secondary-container',
-  warning: 'bg-warning-container text-on-warning-container',
-  error: 'bg-error-container text-on-error-container',
+const variantClasses: Record<'success' | 'warning' | 'error' | 'draft', { container: string, dot: string }> = {
+  success: {
+    container: 'bg-secondary-fixed/20 text-on-secondary-fixed-variant',
+    dot: 'bg-secondary-fixed-dim',
+  },
+  warning: {
+    container: 'bg-tertiary-fixed/20 text-on-tertiary-fixed-variant',
+    dot: 'bg-tertiary-fixed-dim animate-pulse',
+  },
+  error: {
+    container: 'bg-error-container text-on-error-container',
+    dot: 'bg-error',
+  },
+  draft: {
+    container: 'bg-surface-container-high text-on-surface-variant',
+    dot: 'bg-outline',
+  }
 };
 
 function formatLabel(status: StatusVariant): string {
   return status
     .replace(/_/g, ' ')
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .toUpperCase(); // Design uses uppercase for badges
 }
 
 export function StatusBadge({ status, label, className = '' }: StatusBadgeProps) {
   const variant = resolveVariant(status);
   const displayLabel = label ?? formatLabel(status);
+  const classes = variantClasses[variant] || variantClasses.draft;
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${variantClasses[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-label-md text-[11px] uppercase tracking-wider ${classes.container} ${className}`}
     >
+      <span className={`w-1.5 h-1.5 rounded-full ${classes.dot}`}></span>
       {displayLabel}
     </span>
   );

@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getToken, getUser, clearSession, getDashboardPath } from '@/lib/auth/session';
+import { clearSession, getDashboardPath } from '@/lib/auth/session';
+import { useAuthStore } from '@/store/authStore';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,10 +15,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const token = getToken();
-    const user = getUser();
+  const token = useAuthStore(s => s.token);
+  const user = useAuthStore(s => s.user);
 
+  useEffect(() => {
     if (!token || !user) {
       router.replace('/login');
       return;
@@ -37,7 +38,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
     }
 
     setLoading(false);
-  }, [router, allowedRole]);
+  }, [router, allowedRole, token, user]);
 
   if (loading) {
     return (

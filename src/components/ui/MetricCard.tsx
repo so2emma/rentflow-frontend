@@ -15,24 +15,27 @@ interface MetricCardProps {
   value: React.ReactNode;
   /** Optional secondary content below the value (badge, percentage, helper text). */
   sub?: React.ReactNode;
+  /** Material Symbol Icon name for background decoration */
+  icon?: string;
   className?: string;
 }
 
-export function MetricCard({ label, value, sub, className = '' }: MetricCardProps) {
+export function MetricCard({ label, value, sub, icon, className = '' }: MetricCardProps) {
   return (
-    <div
-      className={`bg-surface-container-lowest border border-outline-variant rounded-md p-5
-                  flex flex-col gap-1.5 shadow-sm transition-shadow duration-[150ms] ease-[cubic-bezier(0.4,0,0.2,1)]
-                  hover:[box-shadow:0px_4px_12px_rgba(15,23,42,0.05)] ${className}`}
-    >
-      <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
-        {label}
-      </div>
-      <div className="text-3xl font-bold text-brand-deep-slate font-mono tabular-nums">
-        {value}
-      </div>
+    <div className={`bg-surface rounded-lg border border-outline-variant p-6 relative overflow-hidden group ${className}`}>
+      {icon && (
+        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <span className="material-symbols-outlined text-[64px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+            {icon}
+          </span>
+        </div>
+      )}
+      <div className="text-on-surface-variant font-label-md text-label-md mb-2">{label}</div>
+      <div className="font-display-lg text-headline-lg font-bold text-on-surface tracking-tight">{value}</div>
       {sub && (
-        <div className="text-xs text-on-surface-variant mt-0.5">{sub}</div>
+        <div className="mt-4 text-on-surface-variant font-label-md text-label-md">
+          {sub}
+        </div>
       )}
     </div>
   );

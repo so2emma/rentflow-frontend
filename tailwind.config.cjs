@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -8,7 +9,52 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Surface scale
+        // Core Colors (from design.md)
+        primary: '#0f172a',
+        'on-primary': '#ffffff',
+        'primary-container': '#131b2e',
+        'on-primary-container': '#c9ccd6',
+        'inverse-primary': '#bec6e0',
+        
+        secondary: '#10b981',
+        'on-secondary': '#ffffff',
+        'secondary-container': '#d1fae5',
+        'on-secondary-container': '#047857',
+        
+        tertiary: '#3b82f6',
+        'on-tertiary': '#ffffff',
+        'tertiary-container': '#dbeafe',
+        'on-tertiary-container': '#1d4ed8',
+        
+        warning: '#f59e0b',
+        'on-warning': '#78350f',
+        'warning-container': '#fef3c7',
+        'on-warning-container': '#92400e',
+        
+        error: '#ba1a1a',
+        'on-error': '#ffffff',
+        'error-container': '#ffdad6',
+        'on-error-container': '#93000a',
+        
+        // Fixed Colors
+        'primary-fixed': '#dae2fd',
+        'primary-fixed-dim': '#bec6e0',
+        'on-primary-fixed': '#131b2e',
+        'on-primary-fixed-variant': '#3f465c',
+        
+        'secondary-fixed': '#6ffbbe',
+        'secondary-fixed-dim': '#4edea3',
+        'on-secondary-fixed': '#002113',
+        'on-secondary-fixed-variant': '#005236',
+        
+        'tertiary-fixed': '#d8e2ff',
+        'tertiary-fixed-dim': '#adc6ff',
+        'on-tertiary-fixed': '#001a42',
+        'on-tertiary-fixed-variant': '#004395',
+        
+        // Surface & Background
+        background: '#f8fafc',
+        'on-background': '#191c1e',
         surface: '#f8fafc',
         'surface-dim': '#d8dadc',
         'surface-bright': '#f8fafc',
@@ -21,63 +67,13 @@ module.exports = {
         'on-surface-variant': '#45464d',
         'inverse-surface': '#2d3133',
         'inverse-on-surface': '#eff1f3',
+        'surface-tint': '#0f172a',
+        
         outline: '#76777d',
         'outline-variant': '#d1d5db',
-        'surface-tint': '#0f172a',
-
-        // Primary — Deep Slate
-        primary: '#0f172a',
-        'on-primary': '#ffffff',
-        'primary-container': '#131b2e',
-        'on-primary-container': '#c9ccd6',
-        'inverse-primary': '#bec6e0',
-
-        // Secondary — Emerald (positive financial flows)
-        secondary: '#10b981',
-        'on-secondary': '#ffffff',
-        'secondary-container': '#d1fae5',
-        'on-secondary-container': '#047857',
-
-        // Tertiary — Blue (links, info, focus utility)
-        tertiary: '#3b82f6',
-        'on-tertiary': '#ffffff',
-        'tertiary-container': '#dbeafe',
-        'on-tertiary-container': '#1d4ed8',
-
-        // Warning — Amber (pending, maintenance, intermediate states)
-        warning: '#f59e0b',
-        'on-warning': '#78350f',
-        'warning-container': '#fef3c7',
-        'on-warning-container': '#92400e',
-
-        // Error — Red (vacant, overdue, failed)
-        error: '#ba1a1a',
-        'on-error': '#ffffff',
-        'error-container': '#ffdad6',
-        'on-error-container': '#93000a',
-
-        // Fixed colors for complex overlays
-        'primary-fixed': '#dae2fd',
-        'primary-fixed-dim': '#bec6e0',
-        'on-primary-fixed': '#131b2e',
-        'on-primary-fixed-variant': '#3f465c',
-        'secondary-fixed': '#6ffbbe',
-        'secondary-fixed-dim': '#4edea3',
-        'on-secondary-fixed': '#002113',
-        'on-secondary-fixed-variant': '#005236',
-        'tertiary-fixed': '#d8e2ff',
-        'tertiary-fixed-dim': '#adc6ff',
-        'on-tertiary-fixed': '#001a42',
-        'on-tertiary-fixed-variant': '#004395',
-
-        // Background
-        background: '#f8fafc',
-        'on-background': '#191c1e',
-        'surface-variant': '#e0e3e5',
-
-        // Focus ring
+        
         'focus-ring': '#3b82f6',
-
+        
         // Brand aliases (kept for existing code compatibility)
         'brand-deep-slate': '#0F172A',
         'brand-emerald-green': '#10B981',
@@ -87,12 +83,23 @@ module.exports = {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
+        // From HTML
+        'label-md': ['Inter'],
+        'code-md': ['JetBrains Mono'],
+        'title-lg': ['Inter'],
+        'headline-lg-mobile': ['Inter'],
+        'headline-lg': ['Inter'],
+        'body-lg': ['Inter'],
+        'body-md': ['Inter'],
+        'headline-md': ['Inter'],
+        'display-lg': ['Inter']
       },
 
       fontSize: {
-        // Typography scale from design.md
+        // Typography scale from HTML / design.md
         'display-lg': ['48px', { lineHeight: '56px', letterSpacing: '-0.02em', fontWeight: '700' }],
         'headline-lg': ['32px', { lineHeight: '40px', letterSpacing: '-0.01em', fontWeight: '600' }],
+        'headline-lg-mobile': ['24px', { lineHeight: '32px', fontWeight: '600' }],
         'headline-md': ['24px', { lineHeight: '32px', fontWeight: '600' }],
         'title-lg': ['18px', { lineHeight: '28px', fontWeight: '600' }],
         'body-lg': ['16px', { lineHeight: '24px', fontWeight: '400' }],
@@ -102,14 +109,14 @@ module.exports = {
       },
 
       borderRadius: {
-        // Shape scale from design.md
-        xs: '0.25rem',    // 4px — badge tags
-        sm: '0.375rem',   // 6px — buttons & inputs (DEFAULT)
-        DEFAULT: '0.375rem',
-        md: '0.5rem',     // 8px — cards & modals
+        // Shape scale from HTML / design.md
+        xs: '0.25rem',    // 4px
+        sm: '0.375rem',   // 6px
+        DEFAULT: '0.375rem', // From HTML: 0.125rem but design.md says 0.375rem
+        md: '0.5rem',     // 8px
         lg: '0.75rem',
         xl: '1rem',
-        full: '9999px',   // pill — status badges
+        full: '9999px',
       },
 
       spacing: {
@@ -163,5 +170,8 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/forms'),
+    require('@tailwindcss/container-queries')
+  ],
 }

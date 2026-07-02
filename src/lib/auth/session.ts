@@ -10,46 +10,33 @@
  * this module with a server-side session handler.
  */
 
+import { useAuthStore, SessionUser } from '@/store/authStore';
+
 export const SESSION_KEYS = {
   token: 'rentflow_token',
   user: 'rentflow_user',
 } as const;
 
-export interface SessionUser {
-  email: string;
-  roles: string[];
-}
+export type { SessionUser };
 
 /** Returns the JWT bearer token, or null if not authenticated. */
 export function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(SESSION_KEYS.token);
+  return useAuthStore.getState().token;
 }
 
 /** Returns the parsed user object, or null if not set / parse error. */
 export function getUser(): SessionUser | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(SESSION_KEYS.user);
-    if (!raw) return null;
-    return JSON.parse(raw) as SessionUser;
-  } catch {
-    return null;
-  }
+  return useAuthStore.getState().user;
 }
 
 /** Persists the JWT token and user object after a successful login. */
 export function setSession(token: string, user: SessionUser): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(SESSION_KEYS.token, token);
-  localStorage.setItem(SESSION_KEYS.user, JSON.stringify(user));
+  useAuthStore.getState().setSession(token, user);
 }
 
 /** Removes the session (logout). */
 export function clearSession(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(SESSION_KEYS.token);
-  localStorage.removeItem(SESSION_KEYS.user);
+  useAuthStore.getState().clearSession();
 }
 
 /** Returns true when a token is present. Does NOT validate expiry. */

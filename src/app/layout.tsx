@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "Automated billing, reconciliation, and revenue splitting for modern real estate operations.",
 };
 
+import QueryProvider from "@/providers/QueryProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,8 +29,10 @@ export default function RootLayout({
       <head>
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
       </head>
-      <body className="font-sans antialiased bg-background text-on-surface">
-        {children}
+      <body className="bg-background text-on-surface flex h-screen overflow-hidden antialiased font-sans">
+        <QueryProvider>
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );

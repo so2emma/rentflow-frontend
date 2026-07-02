@@ -16,11 +16,13 @@ export const apiClient = axios.create({
   },
 });
 
+import { useAuthStore } from '@/store/authStore';
+
 // Request Interceptor: Attach JWT Token if present (client-side only)
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     if (!isServer) {
-      const token = localStorage.getItem('rentflow_token');
+      const token = useAuthStore.getState().token;
       if (token && config.headers && !config.headers.Authorization) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -86,8 +88,7 @@ apiClient.interceptors.response.use(
     // 401 Unauthorized handling on client-side
     if (error.response && error.response.status === 401) {
       if (!isServer) {
-        localStorage.removeItem('rentflow_token');
-        localStorage.removeItem('rentflow_user');
+        useAuthStore.getState().clearSession();
         
         // Prevent redirect loops
         if (!window.location.pathname.includes('/login')) {

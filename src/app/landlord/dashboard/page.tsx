@@ -1,38 +1,35 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardShell } from '@/components/layout/DashboardShell';
-import {
-  BuildingIcon,
-  GridIcon,
-  DocumentIcon,
-} from '@/components/layout/Sidebar';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
 import { getProperties, createProperty, getUnits, createUnit } from '@/lib/api/properties';
 import { getTenants } from '@/lib/api/tenants';
 import { getLeases, createLease } from '@/lib/api/leases';
-import { getUser, clearSession } from '@/lib/auth/session';
+import { clearSession } from '@/lib/auth/session';
+import { useAuthStore } from '@/store/authStore';
 import { PropertyResponse, UnitResponse, LeaseResponse, TenantResponse } from '@/types/api';
 import type { ApiErrorResponse } from '@/lib/api/client';
 
 type Tab = 'properties' | 'units' | 'leases';
 
 const NAV_ITEMS = [
-  { id: 'properties', label: 'Properties', icon: <BuildingIcon /> },
-  { id: 'units', label: 'Units', icon: <GridIcon /> },
-  { id: 'leases', label: 'Leases', icon: <DocumentIcon /> },
+  { id: 'properties', label: 'Properties', icon: 'domain' },
+  { id: 'units', label: 'Units', icon: 'grid_view' },
+  { id: 'leases', label: 'Leases', icon: 'description' },
 ];
 
 /* ── Inline form-input class (kept local, avoids globals.css @apply conflicts) ── */
 const INPUT_CLS =
-  'w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded ' +
+  'w-full min-h-[44px] px-4 py-2.5 font-body-md border border-outline-variant rounded-lg ' +
   'bg-surface-container-lowest text-on-surface outline-none ' +
   'transition-colors duration-[150ms] ' +
-  'focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 ' +
+  'focus:border-primary-fixed-dim focus:ring-1 focus:ring-primary-fixed-dim ' +
   'disabled:opacity-50 disabled:cursor-not-allowed';
 
 /* ── Field wrapper ─────────────────────────────────────────────────────────── */
@@ -49,16 +46,13 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-semibold text-on-surface">
+      <label htmlFor={htmlFor} className="font-label-md text-label-md text-on-surface">
         {label}
       </label>
       {children}
       {error && (
-        <p role="alert" className="flex items-center gap-1 text-sm text-on-error-container">
-          <svg className="w-4 h-4 flex-shrink-0 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-          </svg>
+        <p role="alert" className="flex items-center gap-1 font-body-md text-[13px] text-error">
+          <span className="material-symbols-outlined text-[16px]">error</span>
           {error}
         </p>
       )}
@@ -69,10 +63,22 @@ function Field({
 /* ── Feedback Banner ───────────────────────────────────────────────────────── */
 type FeedbackType = 'success' | 'error' | 'info';
 
-const feedbackClasses: Record<FeedbackType, string> = {
-  success: 'bg-secondary-container border-secondary/20 text-on-secondary-container',
-  error: 'bg-error-container border-error/20 text-on-error-container',
-  info: 'bg-primary-fixed border-primary-fixed-dim/20 text-on-primary-fixed',
+const feedbackClasses: Record<FeedbackType, { container: string, icon: string, text: string }> = {
+  success: {
+    container: 'bg-secondary-fixed/20 border-secondary-fixed-dim/20 text-on-secondary-fixed-variant',
+    icon: 'check_circle',
+    text: 'text-on-secondary-fixed-variant',
+  },
+  error: {
+    container: 'bg-error-container/50 border-error/20 text-on-error-container',
+    icon: 'error',
+    text: 'text-error',
+  },
+  info: {
+    container: 'bg-primary-fixed/20 border-primary-fixed-dim/20 text-on-primary-fixed-variant',
+    icon: 'info',
+    text: 'text-on-primary-fixed-variant',
+  },
 };
 
 function FeedbackBanner({
@@ -84,21 +90,20 @@ function FeedbackBanner({
   type: FeedbackType;
   onDismiss: () => void;
 }) {
+  const config = feedbackClasses[type];
   return (
     <div
       role="alert"
-      className={`p-3.5 rounded-md text-sm flex items-start gap-3 border ${feedbackClasses[type]}`}
+      className={`p-4 rounded-lg flex items-start gap-3 border ${config.container}`}
     >
-      <div className="flex-1">{message}</div>
+      <span className={`material-symbols-outlined mt-0.5 ${config.text}`}>{config.icon}</span>
+      <div className={`flex-1 font-body-md ${config.text}`}>{message}</div>
       <button
         onClick={onDismiss}
         aria-label="Dismiss notification"
-        className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity outline-none
-                   focus-visible:ring-2 focus-visible:ring-focus-ring rounded"
+        className={`flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity outline-none rounded ${config.text}`}
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <span className="material-symbols-outlined">close</span>
       </button>
     </div>
   );
@@ -110,15 +115,21 @@ function FeedbackBanner({
 
 export default function LandlordDashboardPage() {
   const router = useRouter();
-  const user = getUser();
+  const queryClient = useQueryClient();
+  const user = useAuthStore(s => s.user);
 
   const [activeTab, setActiveTab] = useState<Tab>('properties');
 
-  // Data
-  const [properties, setProperties] = useState<PropertyResponse[]>([]);
-  const [units, setUnits] = useState<UnitResponse[]>([]);
-  const [leases, setLeases] = useState<LeaseResponse[]>([]);
-  const [tenants, setTenants] = useState<TenantResponse[]>([]);
+  // React Query Data
+  const { data: propertiesData } = useQuery({ queryKey: ['properties'], queryFn: getProperties });
+  const { data: unitsData } = useQuery({ queryKey: ['units'], queryFn: getUnits });
+  const { data: leasesData } = useQuery({ queryKey: ['leases'], queryFn: getLeases });
+  const { data: tenantsData } = useQuery({ queryKey: ['tenants'], queryFn: getTenants });
+
+  const properties: PropertyResponse[] = propertiesData || [];
+  const units: UnitResponse[] = unitsData || [];
+  const leases: LeaseResponse[] = leasesData || [];
+  const tenants: TenantResponse[] = tenantsData || [];
 
   // Add Property form
   const [propName, setPropName] = useState('');
@@ -142,72 +153,38 @@ export default function LandlordDashboardPage() {
 
   // UI feedback
   const [feedback, setFeedback] = useState<{ message: React.ReactNode; type: FeedbackType } | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  /* ── Data loading ─────────────────────────────────────────────────────── */
-
-  useEffect(() => {
-    Promise.all([
-      fetchProperties(),
-      fetchTenants(),
-      fetchUnits(),
-      fetchLeases(),
-    ]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function fetchProperties() {
-    try {
-      const data = await getProperties();
-      setProperties(data);
-    } catch (e) {
-      console.warn('Could not fetch properties:', e);
-    }
-  }
-
-  async function fetchTenants() {
-    try {
-      const data = await getTenants();
-      setTenants(data);
-    } catch (e) {
-      console.warn('Could not fetch tenants:', e);
-    }
-  }
-
-  async function fetchUnits() {
-    try {
-      const data = await getUnits();
-      setUnits(data);
-    } catch (e) {
-      console.warn('Could not fetch units:', e);
-    }
-  }
-
-  async function fetchLeases() {
-    try {
-      const data = await getLeases();
-      setLeases(data);
-    } catch (e) {
-      console.warn('Could not fetch leases:', e);
-    }
-  }
-
-  /* ── Auth ─────────────────────────────────────────────────────────────── */
 
   function handleLogout() {
     clearSession();
     router.replace('/login');
   }
 
-  /* ── Feedback helpers ─────────────────────────────────────────────────── */
-
   function showFeedback(message: React.ReactNode, type: FeedbackType) {
     setFeedback({ message, type });
-    // Auto-dismiss after 12 seconds
     setTimeout(() => setFeedback(null), 12000);
   }
 
   /* ── Add Property ─────────────────────────────────────────────────────── */
+
+  const createPropertyMutation = useMutation({
+    mutationFn: (data: Parameters<typeof createProperty>[0]) => createProperty(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      showFeedback('Property added successfully.', 'success');
+      setPropName(''); setPropAddress(''); setPropCode('');
+    },
+    onError: (error: unknown) => {
+      const err = error as ApiErrorResponse;
+      if (err.errors) {
+        setPropErrors({
+          name: err.errors.name,
+          address: err.errors.address,
+          code: err.errors.propertyCode,
+        });
+      }
+      showFeedback(err.message || 'Failed to create property. Please try again.', 'error');
+    }
+  });
 
   async function handleAddProperty(e: React.FormEvent) {
     e.preventDefault();
@@ -218,29 +195,29 @@ export default function LandlordDashboardPage() {
     if (Object.keys(errs).length) { setPropErrors(errs); return; }
     setPropErrors({});
 
-    setIsSubmitting(true);
-    try {
-      const data = await createProperty({ name: propName, address: propAddress, propertyCode: propCode });
-      setProperties((prev) => [...prev, data]);
-      showFeedback('Property added successfully.', 'success');
-      setPropName(''); setPropAddress(''); setPropCode('');
-    } catch (error: unknown) {
-      const err = error as ApiErrorResponse;
-      // Surface field-level errors if backend returns them
-      if (err.errors) {
-        setPropErrors({
-          name: err.errors.name,
-          address: err.errors.address,
-          code: err.errors.propertyCode,
-        });
-      }
-      showFeedback(err.message || 'Failed to create property. Please try again.', 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createPropertyMutation.mutate({ name: propName, address: propAddress, propertyCode: propCode });
   }
 
   /* ── Add Unit ─────────────────────────────────────────────────────────── */
+
+  const createUnitMutation = useMutation({
+    mutationFn: (data: { propertyId: string, unit: { unitNumber: string, baseRent: number } }) => createUnit(data.propertyId, data.unit),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['units'] });
+      showFeedback('Unit added successfully.', 'success');
+      setUnitNumber(''); setUnitBaseRent('');
+    },
+    onError: (error: unknown) => {
+      const err = error as ApiErrorResponse;
+      if (err.errors) {
+        setUnitErrors({
+          number: err.errors.unitNumber,
+          rent: err.errors.baseRent,
+        });
+      }
+      showFeedback(err.message || 'Failed to create unit. Please try again.', 'error');
+    }
+  });
 
   async function handleAddUnit(e: React.FormEvent) {
     e.preventDefault();
@@ -252,27 +229,58 @@ export default function LandlordDashboardPage() {
     if (Object.keys(errs).length) { setUnitErrors(errs); return; }
     setUnitErrors({});
 
-    setIsSubmitting(true);
-    try {
-      const data = await createUnit(unitPropId, { unitNumber, baseRent: rent });
-      setUnits((prev) => [...prev, data]);
-      showFeedback('Unit added successfully.', 'success');
-      setUnitNumber(''); setUnitBaseRent('');
-    } catch (error: unknown) {
-      const err = error as ApiErrorResponse;
-      if (err.errors) {
-        setUnitErrors({
-          number: err.errors.unitNumber,
-          rent: err.errors.baseRent,
-        });
-      }
-      showFeedback(err.message || 'Failed to create unit. Please try again.', 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createUnitMutation.mutate({ propertyId: unitPropId, unit: { unitNumber, baseRent: rent } });
   }
 
   /* ── Create Lease ─────────────────────────────────────────────────────── */
+
+  const createLeaseMutation = useMutation({
+    mutationFn: (data: Parameters<typeof createLease>[0]) => createLease(data),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['leases'] });
+      queryClient.invalidateQueries({ queryKey: ['units'] });
+      
+      const vactNum = data.nombaVactNumber || '—';
+      const vactBank = data.nombaVactBank || '—';
+      const vactRef = data.nombaVactRef || '—';
+
+      showFeedback(
+        <div className="flex flex-col gap-2">
+          <span className="font-semibold">Lease created. Virtual account provisioned.</span>
+          <div className="grid grid-cols-3 gap-4 text-[13px] border-t border-current/20 pt-3 mt-1">
+            <div>
+              <span className="block opacity-70 font-label-md text-label-md uppercase tracking-wider mb-1">Bank</span>
+              <span className="font-semibold">{vactBank}</span>
+            </div>
+            <div>
+              <span className="block opacity-70 font-label-md text-label-md uppercase tracking-wider mb-1">Account No.</span>
+              <span className="font-code-md font-bold">{vactNum}</span>
+            </div>
+            <div>
+              <span className="block opacity-70 font-label-md text-label-md uppercase tracking-wider mb-1">Ref</span>
+              <span className="font-code-md">{vactRef}</span>
+            </div>
+          </div>
+        </div>,
+        'success'
+      );
+
+      setLeaseTenantId(''); setLeaseUnitId(''); setLeaseStartDate('');
+      setLeaseEndDate(''); setLeaseGracePeriod('5');
+    },
+    onError: (error: unknown) => {
+      const err = error as ApiErrorResponse;
+      if (err.errors) {
+        setLeaseErrors({
+          tenant: err.errors.tenantId,
+          unit: err.errors.unitId,
+          start: err.errors.startDate,
+          end: err.errors.endDate,
+        });
+      }
+      showFeedback(err.message || 'Failed to create lease. Please try again.', 'error');
+    }
+  });
 
   async function handleCreateLease(e: React.FormEvent) {
     e.preventDefault();
@@ -284,63 +292,14 @@ export default function LandlordDashboardPage() {
     if (Object.keys(errs).length) { setLeaseErrors(errs); return; }
     setLeaseErrors({});
 
-    setIsSubmitting(true);
     const graceDays = parseInt(leaseGracePeriod) || 5;
-    try {
-      const data = await createLease({
-        tenantId: leaseTenantId,
-        unitId: leaseUnitId,
-        startDate: leaseStartDate,
-        endDate: leaseEndDate,
-        gracePeriodDays: graceDays,
-      });
-
-      setLeases((prev) => [...prev, data]);
-      setUnits((prev) =>
-        prev.map((u) => (u.id === leaseUnitId ? { ...u, status: 'OCCUPIED' } : u))
-      );
-
-      const vactNum = data.nombaVactNumber || '—';
-      const vactBank = data.nombaVactBank || '—';
-      const vactRef = data.nombaVactRef || '—';
-
-      showFeedback(
-        <div className="flex flex-col gap-2">
-          <span className="font-semibold">Lease created. Virtual account provisioned.</span>
-          <div className="grid grid-cols-3 gap-4 text-xs border-t border-current/20 pt-2 mt-1">
-            <div>
-              <span className="block opacity-70 uppercase text-[10px] font-bold tracking-wider">Bank</span>
-              <span className="font-semibold">{vactBank}</span>
-            </div>
-            <div>
-              <span className="block opacity-70 uppercase text-[10px] font-bold tracking-wider">Account No.</span>
-              <span className="font-mono font-bold">{vactNum}</span>
-            </div>
-            <div>
-              <span className="block opacity-70 uppercase text-[10px] font-bold tracking-wider">Ref</span>
-              <span className="font-mono">{vactRef}</span>
-            </div>
-          </div>
-        </div>,
-        'success'
-      );
-
-      setLeaseTenantId(''); setLeaseUnitId(''); setLeaseStartDate('');
-      setLeaseEndDate(''); setLeaseGracePeriod('5');
-    } catch (error: unknown) {
-      const err = error as ApiErrorResponse;
-      if (err.errors) {
-        setLeaseErrors({
-          tenant: err.errors.tenantId,
-          unit: err.errors.unitId,
-          start: err.errors.startDate,
-          end: err.errors.endDate,
-        });
-      }
-      showFeedback(err.message || 'Failed to create lease. Please try again.', 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createLeaseMutation.mutate({
+      tenantId: leaseTenantId,
+      unitId: leaseUnitId,
+      startDate: leaseStartDate,
+      endDate: leaseEndDate,
+      gracePeriodDays: graceDays,
+    });
   }
 
   /* ── Metrics ──────────────────────────────────────────────────────────── */
@@ -363,34 +322,37 @@ export default function LandlordDashboardPage() {
         onSignOut={handleLogout}
       >
         {/* Page header */}
-        <div className="flex flex-col gap-1 border-b border-outline-variant pb-4">
-          <h1 className="text-2xl md:text-3xl font-semibold text-brand-deep-slate">Landlord Portal</h1>
-          <p className="text-sm text-on-surface-variant">
+        <div className="flex flex-col gap-1 border-b border-outline-variant pb-6 mb-2">
+          <h1 className="font-display-lg text-headline-lg font-bold text-on-surface tracking-tight">Landlord Portal</h1>
+          <p className="text-on-surface-variant font-body-lg">
             Define properties, units, and assign tenant leases with automated ledger splitting.
           </p>
         </div>
 
         {/* Metric cards */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4" aria-label="Portfolio summary">
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6" aria-label="Portfolio summary">
           <MetricCard
             label="Properties Portfolio"
             value={properties.length}
             sub="Registered physical properties"
+            icon="domain"
           />
           <MetricCard
             label="Total Rental Units"
             value={units.length}
             sub={
-              <span className="flex gap-3">
-                <span>Occupied: <strong className="text-secondary">{occupiedUnits}</strong></span>
-                <span>Vacant: <strong className="text-error">{vacantUnits}</strong></span>
+              <span className="flex gap-4">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-secondary"></span>{occupiedUnits} Occupied</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-error"></span>{vacantUnits} Vacant</span>
               </span>
             }
+            icon="grid_view"
           />
           <MetricCard
             label="Active Contracts"
             value={activeLeases}
             sub="Running active tenant agreements"
+            icon="description"
           />
         </section>
 
@@ -405,60 +367,60 @@ export default function LandlordDashboardPage() {
 
         {/* ── TAB: Properties ── */}
         {activeTab === 'properties' && (
-          <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start mt-6">
             {/* Add Property form */}
             <section
-              className="bg-surface-container-lowest border border-outline-variant rounded-md p-6 shadow-sm"
+              className="xl:col-span-4 bg-surface rounded-lg border border-outline-variant p-6"
               aria-labelledby="add-property-title"
             >
-              <h2 id="add-property-title" className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-5">
+              <h2 id="add-property-title" className="font-headline-md text-title-lg font-bold text-on-surface border-b border-outline-variant pb-3 mb-5">
                 Add Property
               </h2>
               <form onSubmit={handleAddProperty} noValidate className="flex flex-col gap-4">
                 <Field label="Property Name" htmlFor="propName" error={propErrors.name}>
                   <input id="propName" type="text" className={INPUT_CLS}
                     placeholder="e.g. Oakwood Apartments" value={propName}
-                    onChange={(e) => setPropName(e.target.value)} required disabled={isSubmitting} />
+                    onChange={(e) => setPropName(e.target.value)} required disabled={createPropertyMutation.isPending} />
                 </Field>
                 <Field label="Property Address" htmlFor="propAddress" error={propErrors.address}>
                   <input id="propAddress" type="text" className={INPUT_CLS}
                     placeholder="e.g. 14 Broad Street, Lagos Island" value={propAddress}
-                    onChange={(e) => setPropAddress(e.target.value)} required disabled={isSubmitting} />
+                    onChange={(e) => setPropAddress(e.target.value)} required disabled={createPropertyMutation.isPending} />
                 </Field>
                 <Field label="Property Code (Unique)" htmlFor="propCode" error={propErrors.code}>
                   <input id="propCode" type="text" className={INPUT_CLS}
                     placeholder="e.g. OAK-01" value={propCode}
-                    onChange={(e) => setPropCode(e.target.value.toUpperCase())} required disabled={isSubmitting} />
+                    onChange={(e) => setPropCode(e.target.value.toUpperCase())} required disabled={createPropertyMutation.isPending} />
                 </Field>
-                <Button type="submit" variant="primary" loading={isSubmitting} className="w-full">
-                  {isSubmitting ? 'Saving…' : 'Save Property'}
-                </Button>
+                <button type="submit" disabled={createPropertyMutation.isPending} className="w-full bg-primary text-on-primary hover:bg-primary/90 px-6 py-2.5 rounded-lg font-label-md text-label-md transition-all active:scale-[0.98] mt-2 flex justify-center">
+                  {createPropertyMutation.isPending ? 'Saving…' : 'Save Property'}
+                </button>
               </form>
             </section>
 
             {/* Properties table */}
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-md overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse font-sans">
+            <div className="xl:col-span-8 bg-surface rounded-lg border border-outline-variant overflow-hidden">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-surface-container-low border-b border-outline-variant">
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Property Name</th>
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Code</th>
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Address</th>
+                  <tr className="bg-surface-container-low/50">
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Property Name</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Code</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Address</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-surface-container-low">
+                <tbody className="divide-y divide-surface-container-high">
                   {properties.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="p-10 text-center text-sm text-on-surface-variant">
+                      <td colSpan={3} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
                         No properties yet. Add one using the form.
                       </td>
                     </tr>
                   ) : (
                     properties.map((p) => (
-                      <tr key={p.id} className="hover:bg-surface-container-low/40 transition-colors duration-[150ms]">
-                        <td className="p-3.5 text-sm font-semibold text-on-surface">{p.name}</td>
-                        <td className="p-3.5 text-sm font-mono text-on-surface">{p.propertyCode}</td>
-                        <td className="p-3.5 text-sm text-on-surface-variant">{p.address}</td>
+                      <tr key={p.id} className="hover:bg-surface-container-low/20 transition-colors group">
+                        <td className="px-6 py-4 font-semibold text-on-surface font-body-md">{p.name}</td>
+                        <td className="px-6 py-4 font-code-md text-on-surface">{p.propertyCode}</td>
+                        <td className="px-6 py-4 font-body-md text-on-surface-variant">{p.address}</td>
                       </tr>
                     ))
                   )}
@@ -470,20 +432,20 @@ export default function LandlordDashboardPage() {
 
         {/* ── TAB: Units ── */}
         {activeTab === 'units' && (
-          <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start mt-6">
             {/* Add Unit form */}
             <section
-              className="bg-surface-container-lowest border border-outline-variant rounded-md p-6 shadow-sm"
+              className="xl:col-span-4 bg-surface rounded-lg border border-outline-variant p-6"
               aria-labelledby="add-unit-title"
             >
-              <h2 id="add-unit-title" className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-5">
+              <h2 id="add-unit-title" className="font-headline-md text-title-lg font-bold text-on-surface border-b border-outline-variant pb-3 mb-5">
                 Add Unit
               </h2>
               <form onSubmit={handleAddUnit} noValidate className="flex flex-col gap-4">
                 <Field label="Select Property" htmlFor="unitProp" error={unitErrors.property}>
                   <select id="unitProp" className={INPUT_CLS + ' cursor-pointer'}
                     value={unitPropId} onChange={(e) => setUnitPropId(e.target.value)}
-                    required disabled={isSubmitting}>
+                    required disabled={createUnitMutation.isPending}>
                     <option value="">— Select Property —</option>
                     {properties.map((p) => (
                       <option key={p.id} value={p.id}>{p.name} ({p.propertyCode})</option>
@@ -493,46 +455,46 @@ export default function LandlordDashboardPage() {
                 <Field label="Unit Number" htmlFor="unitNumber" error={unitErrors.number}>
                   <input id="unitNumber" type="text" className={INPUT_CLS}
                     placeholder="e.g. Suite 3B" value={unitNumber}
-                    onChange={(e) => setUnitNumber(e.target.value)} required disabled={isSubmitting} />
+                    onChange={(e) => setUnitNumber(e.target.value)} required disabled={createUnitMutation.isPending} />
                 </Field>
                 <Field label="Base Rent (₦ per annum)" htmlFor="unitBaseRent" error={unitErrors.rent}>
                   <input id="unitBaseRent" type="number" min="1" className={INPUT_CLS}
                     placeholder="e.g. 1500000" value={unitBaseRent}
-                    onChange={(e) => setUnitBaseRent(e.target.value)} required disabled={isSubmitting} />
+                    onChange={(e) => setUnitBaseRent(e.target.value)} required disabled={createUnitMutation.isPending} />
                 </Field>
-                <Button type="submit" variant="primary" loading={isSubmitting} className="w-full">
-                  {isSubmitting ? 'Saving…' : 'Save Unit'}
-                </Button>
+                <button type="submit" disabled={createUnitMutation.isPending} className="w-full bg-primary text-on-primary hover:bg-primary/90 px-6 py-2.5 rounded-lg font-label-md text-label-md transition-all active:scale-[0.98] mt-2 flex justify-center">
+                  {createUnitMutation.isPending ? 'Saving…' : 'Save Unit'}
+                </button>
               </form>
             </section>
 
             {/* Units table */}
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-md overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse font-sans">
+            <div className="xl:col-span-8 bg-surface rounded-lg border border-outline-variant overflow-hidden">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-surface-container-low border-b border-outline-variant">
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Unit</th>
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Property</th>
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Base Rent</th>
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Status</th>
+                  <tr className="bg-surface-container-low/50">
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Unit</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Property</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Base Rent</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-surface-container-low">
+                <tbody className="divide-y divide-surface-container-high">
                   {units.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="p-10 text-center text-sm text-on-surface-variant">
+                      <td colSpan={4} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
                         No units yet. Add one using the form.
                       </td>
                     </tr>
                   ) : (
                     units.map((u) => (
-                      <tr key={u.id} className="hover:bg-surface-container-low/40 transition-colors duration-[150ms]">
-                        <td className="p-3.5 text-sm font-semibold text-on-surface">{u.unitNumber}</td>
-                        <td className="p-3.5 text-sm text-on-surface">{u.propertyName}</td>
-                        <td className="p-3.5 text-sm font-mono tabular-nums text-on-surface">
+                      <tr key={u.id} className="hover:bg-surface-container-low/20 transition-colors group">
+                        <td className="px-6 py-4 font-semibold text-on-surface font-body-md">{u.unitNumber}</td>
+                        <td className="px-6 py-4 text-on-surface font-body-md">{u.propertyName}</td>
+                        <td className="px-6 py-4 font-code-md text-on-surface">
                           ₦ {Number(u.baseRent).toLocaleString()}
                         </td>
-                        <td className="p-3.5">
+                        <td className="px-6 py-4">
                           <StatusBadge status={u.status} />
                         </td>
                       </tr>
@@ -546,20 +508,20 @@ export default function LandlordDashboardPage() {
 
         {/* ── TAB: Leases ── */}
         {activeTab === 'leases' && (
-          <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start mt-6">
             {/* Create Lease form */}
             <section
-              className="bg-surface-container-lowest border border-outline-variant rounded-md p-6 shadow-sm"
+              className="xl:col-span-4 bg-surface rounded-lg border border-outline-variant p-6"
               aria-labelledby="create-lease-title"
             >
-              <h2 id="create-lease-title" className="text-lg font-semibold text-brand-deep-slate border-b border-surface-container-low pb-2 mb-5">
+              <h2 id="create-lease-title" className="font-headline-md text-title-lg font-bold text-on-surface border-b border-outline-variant pb-3 mb-5">
                 Create Lease
               </h2>
               <form onSubmit={handleCreateLease} noValidate className="flex flex-col gap-4">
                 <Field label="Select Tenant" htmlFor="leaseTenant" error={leaseErrors.tenant}>
                   <select id="leaseTenant" className={INPUT_CLS + ' cursor-pointer'}
                     value={leaseTenantId} onChange={(e) => setLeaseTenantId(e.target.value)}
-                    required disabled={isSubmitting}>
+                    required disabled={createLeaseMutation.isPending}>
                     <option value="">— Select Tenant —</option>
                     {tenants.map((t) => (
                       <option key={t.id} value={t.id}>{t.name} ({t.email})</option>
@@ -570,7 +532,7 @@ export default function LandlordDashboardPage() {
                 <Field label="Select Vacant Unit" htmlFor="leaseUnit" error={leaseErrors.unit}>
                   <select id="leaseUnit" className={INPUT_CLS + ' cursor-pointer'}
                     value={leaseUnitId} onChange={(e) => setLeaseUnitId(e.target.value)}
-                    required disabled={isSubmitting}>
+                    required disabled={createLeaseMutation.isPending}>
                     <option value="">— Select Unit —</option>
                     {units
                       .filter((u) => u.status === 'VACANT')
@@ -586,61 +548,61 @@ export default function LandlordDashboardPage() {
                   <Field label="Start Date" htmlFor="startDate" error={leaseErrors.start}>
                     <input id="startDate" type="date" className={INPUT_CLS}
                       value={leaseStartDate} onChange={(e) => setLeaseStartDate(e.target.value)}
-                      required disabled={isSubmitting} />
+                      required disabled={createLeaseMutation.isPending} />
                   </Field>
                   <Field label="End Date" htmlFor="endDate" error={leaseErrors.end}>
                     <input id="endDate" type="date" className={INPUT_CLS}
                       value={leaseEndDate} onChange={(e) => setLeaseEndDate(e.target.value)}
-                      required disabled={isSubmitting} />
+                      required disabled={createLeaseMutation.isPending} />
                   </Field>
                 </div>
 
                 <Field label="Grace Period (Days)" htmlFor="gracePeriod">
                   <input id="gracePeriod" type="number" min="0" className={INPUT_CLS}
                     value={leaseGracePeriod} onChange={(e) => setLeaseGracePeriod(e.target.value)}
-                    disabled={isSubmitting} />
+                    disabled={createLeaseMutation.isPending} />
                 </Field>
 
-                <Button type="submit" variant="primary" loading={isSubmitting} className="w-full">
-                  {isSubmitting ? 'Creating Lease…' : 'Create Lease'}
-                </Button>
+                <button type="submit" disabled={createLeaseMutation.isPending} className="w-full bg-primary text-on-primary hover:bg-primary/90 px-6 py-2.5 rounded-lg font-label-md text-label-md transition-all active:scale-[0.98] mt-2 flex justify-center">
+                  {createLeaseMutation.isPending ? 'Creating Lease…' : 'Create Lease'}
+                </button>
               </form>
             </section>
 
             {/* Leases table */}
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-md overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse font-sans">
+            <div className="xl:col-span-8 bg-surface rounded-lg border border-outline-variant overflow-hidden">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-surface-container-low border-b border-outline-variant">
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Tenant</th>
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Property / Unit</th>
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Term</th>
-                    <th className="p-3.5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Status</th>
+                  <tr className="bg-surface-container-low/50">
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Tenant</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Property / Unit</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Term</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-surface-container-low">
+                <tbody className="divide-y divide-surface-container-high">
                   {leases.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="p-10 text-center text-sm text-on-surface-variant">
+                      <td colSpan={4} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
                         No lease agreements yet.
                       </td>
                     </tr>
                   ) : (
                     leases.map((l) => (
-                      <tr key={l.id} className="hover:bg-surface-container-low/40 transition-colors duration-[150ms]">
-                        <td className="p-3.5 text-sm font-semibold text-on-surface">{l.tenantName}</td>
-                        <td className="p-3.5 text-sm text-on-surface">
+                      <tr key={l.id} className="hover:bg-surface-container-low/20 transition-colors group">
+                        <td className="px-6 py-4 font-semibold text-on-surface font-body-md">{l.tenantName}</td>
+                        <td className="px-6 py-4 font-body-md text-on-surface">
                           {l.propertyName} — Unit {l.unitNumber}
                         </td>
-                        <td className="p-3.5 text-sm text-on-surface-variant tabular-nums">
+                        <td className="px-6 py-4 font-body-md text-on-surface-variant tabular-nums">
                           <span>{l.startDate}</span>
                           <span className="mx-1 text-outline">→</span>
                           <span>{l.endDate}</span>
                           {l.gracePeriodDays != null && (
-                            <span className="block text-xs mt-0.5">Grace: {l.gracePeriodDays}d</span>
+                            <span className="block text-[13px] mt-1">Grace: {l.gracePeriodDays}d</span>
                           )}
                         </td>
-                        <td className="p-3.5">
+                        <td className="px-6 py-4">
                           <StatusBadge status={l.status} />
                         </td>
                       </tr>

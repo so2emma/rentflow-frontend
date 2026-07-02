@@ -137,7 +137,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
+    <div className="w-full min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <div
         className="w-full max-w-[520px] bg-surface-container-lowest border border-outline-variant
                    rounded-md p-8 shadow-sm transition-[box-shadow] duration-[150ms] ease-[cubic-bezier(0.4,0,0.2,1)]
