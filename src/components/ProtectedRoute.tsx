@@ -42,7 +42,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="w-full flex items-center justify-center min-h-screen bg-background">
         <h2 className="text-xl font-semibold animate-pulse text-brand-deep-slate">
           Verifying session…
         </h2>

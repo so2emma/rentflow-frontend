@@ -19,7 +19,7 @@ export default function Home() {
 
   if (checking) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="w-full flex items-center justify-center min-h-screen bg-background">
         <h2 className="text-xl font-semibold animate-pulse text-primary">Loading RentFlow…</h2>
       </div>
     );

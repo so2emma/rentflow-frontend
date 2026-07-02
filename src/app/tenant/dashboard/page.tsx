@@ -67,7 +67,7 @@ export default function TenantDashboardPage() {
   if (loading) {
     return (
       <ProtectedRoute allowedRole="ROLE_TENANT">
-        <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="w-full flex items-center justify-center min-h-screen bg-background">
           <div className="font-headline-md text-title-lg font-bold text-brand-deep-slate animate-pulse">
             Loading your dashboard…
           </div>
