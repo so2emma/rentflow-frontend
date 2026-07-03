@@ -372,12 +372,13 @@ export default function LandlordDashboardPage() {
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Property / Unit</th>
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Term</th>
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Status</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-container-high">
                   {leases.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
+                      <td colSpan={5} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
                         No lease agreements yet.
                       </td>
                     </tr>
@@ -398,6 +399,15 @@ export default function LandlordDashboardPage() {
                         </td>
                         <td className="px-6 py-4">
                           <StatusBadge status={l.status} />
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => router.push(`/landlord/leases/${l.id}`)}
+                          >
+                            View
+                          </Button>
                         </td>
                       </tr>
                     ))

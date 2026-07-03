@@ -12,7 +12,7 @@ import { createLease } from '@/lib/api/leases';
 import { useAuthStore } from '@/store/authStore';
 import { clearSession } from '@/lib/auth/session';
 import type { ApiErrorResponse } from '@/lib/api/client';
-import { UnitResponse, TenantResponse } from '@/types/api';
+import { UnitResponse, TenantResponse, LedgerEntryRequest } from '@/types/api';
 
 const INPUT_CLS =
   'w-full min-h-[44px] px-4 py-2.5 font-body-md border border-outline-variant rounded-lg ' +
@@ -67,6 +67,8 @@ export default function NewLeasePage() {
     gracePeriodDays: '5'
   });
 
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntryRequest[]>([]);
+
   const [errors, setErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
 
@@ -96,6 +98,23 @@ export default function NewLeasePage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   }
 
+  function addLedgerEntry() {
+    setLedgerEntries(prev => [
+      ...prev,
+      { entryType: 'SECURITY_DEPOSIT', amountDue: 0, dueDate: formData.startDate || '', periodStartDate: '', periodEndDate: '', description: '' }
+    ]);
+  }
+
+  function removeLedgerEntry(index: number) {
+    setLedgerEntries(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function updateLedgerEntry(index: number, field: keyof LedgerEntryRequest, value: string | number) {
+    const updated = [...ledgerEntries];
+    updated[index] = { ...updated[index], [field]: value };
+    setLedgerEntries(updated);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
@@ -120,6 +139,10 @@ export default function NewLeasePage() {
       startDate: formData.startDate,
       endDate: formData.endDate,
       gracePeriodDays: graceDays,
+      initialLedgerEntries: ledgerEntries.map(le => ({
+        ...le,
+        amountDue: Number(le.amountDue)
+      })).filter(le => le.amountDue > 0 && le.dueDate),
     });
   }
 
@@ -206,6 +229,68 @@ export default function NewLeasePage() {
                     value={formData.gracePeriodDays} onChange={handleChange} disabled={mutation.isPending} />
                 </Field>
               </div>
+            </div>
+
+            <div className="border-t border-outline-variant pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-label-lg text-title-md font-semibold text-on-surface">Initial Ledger Entries</h3>
+                <Button type="button" variant="ghost" size="sm" onClick={addLedgerEntry} leadingIcon={<span className="material-symbols-outlined text-[18px]">add</span>}>
+                  Add Entry
+                </Button>
+              </div>
+
+              <div className="bg-primary-container/20 border border-primary/20 text-on-surface p-4 rounded-lg flex items-start gap-3 mb-6">
+                <span className="material-symbols-outlined text-primary">info</span>
+                <div className="flex-1 font-body-md">
+                  <strong>Note:</strong> The base rent for the selected unit will be automatically added to the ledger on the lease start date. You can add additional charges (e.g. Security Deposit, Utilities) below.
+                </div>
+              </div>
+              
+              {ledgerEntries.length === 0 ? (
+                <p className="text-body-sm text-on-surface-variant italic mb-6">No additional initial ledger entries added.</p>
+              ) : (
+                <div className="flex flex-col gap-4 mb-6">
+                  {ledgerEntries.map((entry, index) => (
+                    <div key={index} className="flex flex-col gap-4 p-4 border border-outline-variant rounded-lg bg-surface-container-lowest">
+                      <div className="flex justify-between items-center">
+                        <span className="font-label-md font-semibold">Entry #{index + 1}</span>
+                        <button type="button" onClick={() => removeLedgerEntry(index)} className="text-error hover:bg-error-container/50 p-1 rounded-full transition-colors">
+                          <span className="material-symbols-outlined text-[20px]">delete</span>
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Field label="Type *" htmlFor={`entryType-${index}`}>
+                          <select id={`entryType-${index}`} className={INPUT_CLS} value={entry.entryType} onChange={e => updateLedgerEntry(index, 'entryType', e.target.value)}>
+                            <option value="RENT">Rent</option>
+                            <option value="UTILITY_WATER">Water Utility</option>
+                            <option value="UTILITY_POWER">Power Utility</option>
+                            <option value="SERVICE_CHARGE">Service Charge</option>
+                            <option value="SECURITY_DEPOSIT">Security Deposit</option>
+                            <option value="LATE_FEE">Late Fee</option>
+                          </select>
+                        </Field>
+                        <Field label="Amount Due (₦) *" htmlFor={`amountDue-${index}`}>
+                          <input type="number" id={`amountDue-${index}`} className={INPUT_CLS} value={entry.amountDue || ''} onChange={e => updateLedgerEntry(index, 'amountDue', parseFloat(e.target.value) || 0)} />
+                        </Field>
+                        <Field label="Due Date *" htmlFor={`dueDate-${index}`}>
+                          <input type="date" id={`dueDate-${index}`} className={INPUT_CLS} value={entry.dueDate} onChange={e => updateLedgerEntry(index, 'dueDate', e.target.value)} />
+                        </Field>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Field label="Period Start (Optional)" htmlFor={`periodStart-${index}`}>
+                          <input type="date" id={`periodStart-${index}`} className={INPUT_CLS} value={entry.periodStartDate || ''} onChange={e => updateLedgerEntry(index, 'periodStartDate', e.target.value)} />
+                        </Field>
+                        <Field label="Period End (Optional)" htmlFor={`periodEnd-${index}`}>
+                          <input type="date" id={`periodEnd-${index}`} className={INPUT_CLS} value={entry.periodEndDate || ''} onChange={e => updateLedgerEntry(index, 'periodEndDate', e.target.value)} />
+                        </Field>
+                        <Field label="Description (Optional)" htmlFor={`desc-${index}`}>
+                          <input type="text" id={`desc-${index}`} className={INPUT_CLS} placeholder="e.g. August Water Bill" value={entry.description || ''} onChange={e => updateLedgerEntry(index, 'description', e.target.value)} />
+                        </Field>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-4 mt-4">
