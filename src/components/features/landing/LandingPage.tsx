@@ -28,8 +28,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-sans selection:bg-secondary-container selection:text-on-secondary-container overflow-x-hidden">
-      
-      {/* Landing Page Nav */}
       <nav
         className={`fixed top-0 left-0 w-full z-sticky-header border-b transition-all duration-base ease-standard ${
           scrollPosition > 20
@@ -45,7 +43,7 @@ export default function LandingPage() {
             </span>
             <span className="text-headline-md text-primary font-bold">RentFlow</span>
           </div>
-          
+
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-stack-lg">
             <a
@@ -144,7 +142,7 @@ export default function LandingPage() {
               <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" aria-hidden="true"></span>
               <span className="text-label-md text-on-surface-variant font-semibold normal-case">New: Automated Payouts Live</span>
             </div>
-            
+
             <h1 className="text-headline-lg-mobile md:text-display-lg text-primary font-bold leading-tight">
               Property Management on <span className="text-secondary relative whitespace-nowrap">
                 Autopilot
@@ -153,11 +151,11 @@ export default function LandingPage() {
                 </svg>
               </span>
             </h1>
-            
+
             <p className="text-body-lg text-on-surface-variant max-w-lg">
               Streamline your financial operations, automate multi-party splits, and reconcile ledgers with institutional-grade precision. Designed for scale.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-stack-md pt-stack-sm">
               <Link
                 href="/signup"
@@ -180,19 +178,19 @@ export default function LandingPage() {
                 <img
                   className="w-8 h-8 rounded-full border-2 border-white object-cover z-20"
                   alt="Avatar of Property Manager"
-                  src="/avatar-1.png"
+                  src="/images/avatar-1.png"
                   loading="lazy"
                 />
                 <img
                   className="w-8 h-8 rounded-full border-2 border-white object-cover z-10"
                   alt="Avatar of Real Estate Investor"
-                  src="/avatar-2.png"
+                  src="/images/avatar-2.png"
                   loading="lazy"
                 />
                 <img
                   className="w-8 h-8 rounded-full border-2 border-white object-cover z-0"
                   alt="Avatar of Financial Controller"
-                  src="/avatar-3.png"
+                  src="/images/avatar-3.png"
                   loading="lazy"
                 />
               </div>
@@ -214,7 +212,7 @@ export default function LandingPage() {
                 <p className="text-title-lg leading-tight text-primary font-bold font-mono">+$12,450.00</p>
               </div>
             </div>
-            
+
             {/* Dashboard Container with transform hover */}
             <div className="rounded-md overflow-hidden shadow-modal border border-outline-variant bg-white transform rotate-y-[-5deg] rotate-x-[2deg] transition-transform duration-slow ease-emphasized hover:rotate-0">
               {/* Mockup Header Window Controls */}
@@ -227,7 +225,7 @@ export default function LandingPage() {
               <img
                 className="w-full h-auto object-cover border-b border-white select-none pointer-events-none"
                 alt="RentFlow Financial Dashboard Mockup Preview"
-                src="/dashboard-preview.png"
+                src="/images/dashboard-preview.png"
               />
             </div>
           </div>
@@ -267,13 +265,13 @@ export default function LandingPage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-gutter">
-          
+
           {/* Card 1: Automated Payouts & Splits (Large 2-column card) */}
           <div className="md:col-span-2 bg-white border border-outline-variant rounded-md p-8 shadow-sm hover:shadow-card-hover hover:border-slate-300 transition-all duration-base ease-standard flex flex-col gap-6 relative overflow-hidden group">
             <div className="w-12 h-12 bg-secondary-container/40 rounded-sm flex items-center justify-center text-on-secondary-container border border-secondary-container/80">
               <span className="material-symbols-outlined" aria-hidden="true">payments</span>
             </div>
-            
+
             <div className="z-10">
               <h3 className="text-title-lg text-primary mb-2 font-bold">Automated Payouts & Splits</h3>
               <p className="text-body-md text-on-surface-variant max-w-md">
@@ -314,7 +312,7 @@ export default function LandingPage() {
                 Generate unique virtual account numbers for every tenant. Instantly reconcile payments without manual matching.
               </p>
             </div>
-            
+
             <div className="mt-auto bg-surface-container-low p-4 rounded-sm border border-outline-variant/40 font-mono text-code-md text-primary flex justify-between items-center select-all">
               <span>ACC-4892-XXXX</span>
               <span className="text-secondary leading-none flex items-center" title="Verified Account">
@@ -359,7 +357,7 @@ export default function LandingPage() {
                 <span className="material-symbols-outlined text-[16px] leading-none" aria-hidden="true">arrow_forward</span>
               </a>
             </div>
-            
+
             {/* Mini RUBS Table */}
             <div className="flex-1 w-full bg-surface-container-lowest border border-outline-variant rounded-sm p-4 flex flex-col gap-2.5 shadow-sm font-sans select-none">
               <div className="flex justify-between text-label-md text-on-surface-variant font-bold border-b border-outline-variant/60 pb-2 mb-1">
@@ -402,7 +400,7 @@ export default function LandingPage() {
             backgroundSize: "24px 24px",
           }}
         ></div>
-        
+
         <div className="max-w-4xl mx-auto px-margin-mobile md:px-margin-desktop relative z-base text-center">
           <span className="material-symbols-outlined text-[56px] text-secondary opacity-40 mb-6 leading-none select-none" aria-hidden="true">
             format_quote
@@ -414,7 +412,7 @@ export default function LandingPage() {
             <img
               className="w-14 h-14 rounded-full border-2 border-emerald-500/50 object-cover"
               alt="Sarah Jenkins Headshot Portrait"
-              src="/testimonial-sarah.png"
+              src="/images/testimonial-sarah.png"
               loading="lazy"
             />
             <div className="text-left">
@@ -429,14 +427,14 @@ export default function LandingPage() {
       <section className="py-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto text-center">
         <div className="bg-surface-container-low border border-outline-variant rounded-md p-12 md:p-20 relative overflow-hidden shadow-sm">
           <div className="absolute top-0 right-0 w-64 h-64 bg-secondary/5 rounded-full blur-[80px] translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-          
+
           <h2 className="text-headline-lg text-primary mb-4 max-w-2xl mx-auto font-bold">
             Ready to upgrade your property management stack?
           </h2>
           <p className="text-body-lg text-on-surface-variant mb-8 max-w-xl mx-auto">
             Join hundreds of operators using RentFlow to manage billions in real estate assets with confidence.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
               href="/signup"
@@ -510,7 +508,7 @@ export default function LandingPage() {
             </ul>
           </div>
         </div>
-        
+
         <div className="max-w-container-max mx-auto border-t border-outline-variant/60 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-xs text-on-surface-variant">
             &copy; {new Date().getFullYear()} RentFlow Inc. All rights reserved.
@@ -543,7 +541,7 @@ export default function LandingPage() {
                 <span className="material-symbols-outlined leading-none" aria-hidden="true">close</span>
               </button>
             </div>
-            
+
             {/* Mock Video Container */}
             <div className="relative aspect-video bg-black flex items-center justify-center p-8">
               {/* Background styling elements */}
@@ -560,7 +558,7 @@ export default function LandingPage() {
                 </span>
               </div>
             </div>
-            
+
             {/* Modal Footer Actions */}
             <div className="px-6 py-4 bg-surface-container-low border-t border-outline-variant/60 flex flex-col sm:flex-row justify-between items-center gap-4">
               <p className="text-body-md text-on-surface-variant">

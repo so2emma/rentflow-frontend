@@ -10,7 +10,7 @@ export interface ApiErrorResponse {
 const isServer = typeof window === 'undefined';
 
 export const apiClient = axios.create({
-  baseURL: isServer ? (process.env.BACKEND_API_URL || 'http://localhost:8080') : '',
+  baseURL: 'http://localhost:8080',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -89,7 +89,7 @@ apiClient.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       if (!isServer) {
         useAuthStore.getState().clearSession();
-        
+
         // Prevent redirect loops
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login?expired=true';
