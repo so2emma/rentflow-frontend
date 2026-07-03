@@ -28,3 +28,11 @@ export async function getActiveLease(config?: AxiosRequestConfig): Promise<Lease
   const response = await apiClient.get<LeaseResponse>('/api/v1/leases/active', config);
   return response.data;
 }
+
+/**
+ * Get a specific lease by its ID (for landlords).
+ */
+export async function getLeaseById(id: string, config?: AxiosRequestConfig): Promise<LeaseResponse> {
+  const response = await apiClient.get<LeaseResponse>(`/api/v1/leases/${id}`, config);
+  return response.data;
+}
