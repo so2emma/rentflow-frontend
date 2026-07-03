@@ -100,6 +100,7 @@ export interface LeaseRequest {
   gracePeriodDays?: number;
   lateFeePercentage?: number;
   nombaVactRef?: string;
+  initialLedgerEntries?: LedgerEntryRequest[];
 }
 
 export interface LeaseResponse {
@@ -127,6 +128,26 @@ export interface LedgerEntryResponse {
   amountDue: number;
   amountPaid: number;
   status: string;
+  paymentDate?: string;
+  paymentMethod?: string;
+  transactionReference?: string;
+  description?: string;
+  invoiceFileUrl?: string;
+  discountAmount?: number;
+  taxAmount?: number;
+  isReversed?: boolean;
+  reversedAt?: string;
+  periodStartDate?: string;
+  periodEndDate?: string;
+}
+
+export interface LedgerEntryRequest {
+  entryType: string;
+  amountDue: number;
+  dueDate: string; // YYYY-MM-DD
+  periodStartDate?: string;
+  periodEndDate?: string;
+  description?: string;
 }
 
 export interface TenantResponse {
