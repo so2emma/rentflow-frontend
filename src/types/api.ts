@@ -8,34 +8,6 @@ export interface TenantDetails {
   bvn: string;
 }
 
-export interface SignUpRequest {
-  email: string;
-  password?: string;
-  role: 'LANDLORD' | 'TENANT' | 'ADMIN';
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  landlordDetails?: LandlordDetails;
-  tenantDetails?: TenantDetails;
-}
-
-export interface SignUpResponse {
-  message: string;
-  email: string;
-  id: string; // UUID
-}
-
-export interface LoginRequest {
-  email: string;
-  password?: string;
-}
-
-export interface LoginResponse {
-  token: string;
-  email: string;
-  roles: string[];
-}
-
 export interface PropertyRequest {
   name: string;
   address: string;
@@ -104,13 +76,14 @@ export interface LedgerEntryResponse {
 }
 
 export interface TenantResponse {
-  id: string; // UUID
+  id: string;
   name: string;
   email: string;
 }
 
-export interface ApiError {
-  status?: number;
+export interface ApiErrorResponse {
+  status: number;
   code?: string;
   message: string;
+  errors?: Record<string, string>;
 }

@@ -27,7 +27,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-on-surface font-sans selection:bg-secondary-container selection:text-on-secondary-container overflow-x-hidden">
+    <div className="min-h-screen bg-background w-full text-on-surface font-sans selection:bg-secondary-container selection:text-on-secondary-container overflow-x-hidden">
       <nav
         className={`fixed top-0 left-0 w-full z-sticky-header border-b transition-all duration-base ease-standard ${
           scrollPosition > 20

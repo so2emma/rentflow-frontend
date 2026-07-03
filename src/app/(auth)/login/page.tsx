@@ -23,7 +23,6 @@ function LoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<"landlord" | "tenant">("landlord");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,30 +58,6 @@ function LoginContent() {
           title="Welcome Back"
           subtitle="Access your real estate portfolio dashboard."
       >
-        <div className="flex bg-slate-100 p-1 rounded-lg mb-6">
-          <button
-              onClick={() => setRole("landlord")}
-              className={`flex-1 py-2 rounded-md text-sm font-semibold transition ${
-                  role === "landlord"
-                      ? "bg-white shadow text-slate-900"
-                      : "text-slate-500"
-              }`}
-          >
-            Landlord
-          </button>
-
-          <button
-              onClick={() => setRole("tenant")}
-              className={`flex-1 py-2 rounded-md text-sm font-semibold transition ${
-                  role === "tenant"
-                      ? "bg-white shadow text-slate-900"
-                      : "text-slate-500"
-              }`}
-          >
-            Tenant
-          </button>
-        </div>
-
         <form
             onSubmit={handleSubmit}
             className="space-y-4"

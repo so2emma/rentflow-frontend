@@ -1,14 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-export interface ApiErrorResponse {
-  status: number;
-  code?: string;
-  message: string;
-  errors?: Record<string, string>;
-}
 
 const isServer = typeof window === 'undefined';
-
 export const apiClient = axios.create({
   baseURL: 'http://localhost:8080',
   headers: {
@@ -17,6 +10,7 @@ export const apiClient = axios.create({
 });
 
 import { useAuthStore } from '@/store/authStore';
+import {ApiErrorResponse} from "@/types/api";
 
 // Request Interceptor: Attach JWT Token if present (client-side only)
 apiClient.interceptors.request.use(
@@ -80,7 +74,6 @@ export function normalizeError(error: any): ApiErrorResponse {
     message: error.message || 'Network error or server unreachable',
   };
 }
-
 // Response Interceptor: Normalize errors and handle 401s
 apiClient.interceptors.response.use(
   (response) => response,
