@@ -29,7 +29,7 @@ export default function RootLayout({
       <head>
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
       </head>
-      <body className="bg-background text-on-surface flex h-screen overflow-hidden antialiased font-sans">
+      <body className="bg-background text-on-surface flex flex-col min-h-screen antialiased font-sans">
         <QueryProvider>
           {children}
         </QueryProvider>
