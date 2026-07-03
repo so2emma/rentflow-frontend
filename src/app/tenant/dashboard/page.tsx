@@ -86,7 +86,13 @@ export default function TenantDashboardPage() {
         userEmail={user?.email}
         navItems={NAV_ITEMS}
         activeItem={activeTab}
-        onNavChange={setActiveTab}
+        onNavChange={(id) => {
+          if (id === 'profile') {
+            router.push('/tenant/profile');
+          } else {
+            setActiveTab(id);
+          }
+        }}
         onSignOut={handleLogout}
       >
         {/* Page header */}
