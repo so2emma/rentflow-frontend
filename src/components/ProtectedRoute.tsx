@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { clearSession, getDashboardPath } from '@/lib/auth/session';
+import { useAuthStore } from '@/store/authStore';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -13,47 +15,37 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const token = localStorage.getItem('rentflow_token');
-    const userString = localStorage.getItem('rentflow_user');
+  const token = useAuthStore(s => s.token);
+  const user = useAuthStore(s => s.user);
 
-    if (!token || !userString) {
+  useEffect(() => {
+    if (!token || !user) {
       router.replace('/login');
       return;
     }
 
-    try {
-      const user = JSON.parse(userString);
-      if (!user.roles || !user.roles.includes(allowedRole)) {
-        if (user.roles.includes('ROLE_ADMIN')) {
-          router.replace('/admin/dashboard');
-        } else if (user.roles.includes('ROLE_LANDLORD')) {
-          router.replace('/landlord/dashboard');
-        } else if (user.roles.includes('ROLE_TENANT')) {
-          router.replace('/tenant/dashboard');
-        } else {
-          localStorage.removeItem('rentflow_token');
-          localStorage.removeItem('rentflow_user');
-          router.replace('/login');
-        }
+    if (!user.roles?.includes(allowedRole)) {
+      // Redirect to the user's correct dashboard rather than logging them out
+      const correctPath = getDashboardPath();
+      if (correctPath !== '/login') {
+        router.replace(correctPath);
       } else {
-        setIsAuthorized(true);
+        clearSession();
+        router.replace('/login');
       }
-    } catch (e) {
-      localStorage.removeItem('rentflow_token');
-      localStorage.removeItem('rentflow_user');
-      router.replace('/login');
-    } finally {
-      setLoading(false);
+    } else {
+      setIsAuthorized(true);
     }
-  }, [router, allowedRole]);
+
+    setLoading(false);
+  }, [router, allowedRole, token, user]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold animate-pulse text-brand-deep-slate">Verifying session...</h2>
-        </div>
+      <div className="w-full flex items-center justify-center min-h-screen bg-background">
+        <h2 className="text-xl font-semibold animate-pulse text-brand-deep-slate">
+          Verifying session…
+        </h2>
       </div>
     );
   }

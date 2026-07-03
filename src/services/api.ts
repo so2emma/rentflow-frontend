@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '@/store/authStore';
 
 // The client-side Axios instance always uses relative paths to route requests
 // through the secure Next.js server-side proxy configuration.
@@ -12,11 +13,9 @@ export const api = axios.create({
 // Request Interceptor: Attach JWT Token if present
 api.interceptors.request.use(
   (config) => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('rentflow_token');
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+    const token = useAuthStore.getState().token;
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -33,9 +32,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       if (typeof window !== 'undefined') {
-        // Clear token and user details from localStorage
-        localStorage.removeItem('rentflow_token');
-        localStorage.removeItem('rentflow_user');
+        useAuthStore.getState().clearSession();
         
         // Prevent redirect loops if already on login page
         if (!window.location.pathname.includes('/login')) {

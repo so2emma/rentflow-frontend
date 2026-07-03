@@ -3,144 +3,147 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/services/api';
+import { login } from '@/lib/api/auth';
+import { setSession, getDashboardPath } from '@/lib/auth/session';
+import { Button } from '@/components/ui/Button';
 
-interface LoginResponse {
-  token: string;
-  email: string;
-  roles: string[];
+/* ── Eye icon (show / hide password) ───────────────────────────────────── */
+function EyeIcon({ open }: { open: boolean }) {
+  return open ? (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+    </svg>
+  ) : (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+    </svg>
+  );
 }
+
+/* ── Inline field styles ────────────────────────────────────────────────── */
+const INPUT_CLS =
+  'w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded ' +
+  'bg-surface-container-lowest text-on-surface outline-none ' +
+  'transition-colors duration-[150ms] ' +
+  'focus:border-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 ' +
+  'disabled:opacity-50 disabled:cursor-not-allowed';
+
+/* ═══════════════════════════════════════════════════════════════════════ */
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
 
   useEffect(() => {
-    if (searchParams.get('expired') === 'true') {
-      setSessionExpired(true);
-    }
-    if (searchParams.get('signup_success') === 'true') {
-      setSignupSuccess(true);
-    }
+    if (searchParams.get('expired') === 'true') setSessionExpired(true);
+    if (searchParams.get('signup_success') === 'true') setSignupSuccess(true);
   }, [searchParams]);
 
-  const togglePasswordVisibility = () => {
-    setShowPassword((prev) => !prev);
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage(null);
+    setError(null);
     setSessionExpired(false);
     setSignupSuccess(false);
 
     try {
-      const response = await api.post<LoginResponse>('/api/auth/login', {
-        email,
-        password,
-      });
-
-      const { token, email: userEmail, roles } = response.data;
-
-      localStorage.setItem('rentflow_token', token);
-      localStorage.setItem('rentflow_user', JSON.stringify({ email: userEmail, roles }));
-
-      if (roles.includes('ROLE_ADMIN')) {
-        router.replace('/admin/dashboard');
-      } else if (roles.includes('ROLE_LANDLORD')) {
-        router.replace('/landlord/dashboard');
-      } else if (roles.includes('ROLE_TENANT')) {
-        router.replace('/tenant/dashboard');
-      } else {
-        setErrorMessage('Access denied: Unauthorized role assignment.');
-      }
-    } catch (error: any) {
-      if (error.response) {
-        if (error.response.status === 401) {
-          setErrorMessage('Invalid email or password. Please try again.');
-        } else {
-          setErrorMessage(error.response.data?.message || 'An unexpected error occurred. Please try again later.');
-        }
-      } else if (error.request) {
-        setErrorMessage('Unable to connect to the authentication server. Please check your internet connection.');
-      } else {
-        setErrorMessage('An error occurred. Please check your login credentials.');
-      }
-      console.error('Login error:', error);
+      const response = await login({ email, password });
+      setSession(response.token, { email: response.email, roles: response.roles });
+      router.replace(getDashboardPath());
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      setError(apiErr.message ?? 'An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-8">
-      <div className="w-full max-w-[440px] bg-surface-container-lowest border border-outline-variant rounded-lg p-8 shadow-md">
+    <div className="w-full min-h-screen flex items-center justify-center bg-background px-4 py-8">
+      <div
+        className="w-full max-w-[440px] bg-surface-container-lowest border border-outline-variant
+                   rounded-md p-8 shadow-sm transition-[box-shadow] duration-[150ms] ease-[cubic-bezier(0.4,0,0.2,1)]
+                   hover:[box-shadow:0px_4px_12px_rgba(15,23,42,0.05)]"
+      >
+        {/* Brand header */}
         <div className="mb-7 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-brand-deep-slate mb-2">RentFlow</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-brand-deep-slate mb-1">RentFlow</h1>
           <p className="text-sm text-on-surface-variant">Sign in to manage your property operations</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate={false}>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+          {/* Banners */}
           {signupSuccess && (
-            <div className="bg-[#d1fae5] border border-[#6ee7b7] rounded p-3 text-sm text-[#065f46] flex items-start gap-2" role="alert">
-              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <div role="alert"
+              className="bg-secondary-container border border-secondary/20 rounded-md p-3 text-sm text-on-secondary-container flex items-start gap-2">
+              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>Account created successfully! Please sign in below.</span>
+              Account created successfully! Please sign in.
             </div>
           )}
 
           {sessionExpired && (
-            <div className="bg-[#dae2fd] border border-[#adc6ff] rounded p-3 text-sm text-[#001a42] flex items-start gap-2" role="alert">
-              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <div role="alert"
+              className="bg-warning-container border border-warning/20 rounded-md p-3 text-sm text-on-warning-container flex items-start gap-2">
+              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
-              <span>Your session has expired. Please sign in again.</span>
+              Your session has expired. Please sign in again.
             </div>
           )}
 
-          {errorMessage && (
-            <div className="bg-error-container border border-[#fda4af] rounded p-3 text-sm text-on-error-container flex items-start gap-2" role="alert">
-              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          {error && (
+            <div role="alert"
+              className="bg-error-container border border-error/20 rounded-md p-3 text-sm text-on-error-container flex items-start gap-2">
+              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>{errorMessage}</span>
+              {error}
             </div>
           )}
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="email" className="text-sm font-semibold text-on-surface">Email Address</label>
-            <div className="relative flex items-center">
-              <input
-                id="email"
-                type="email"
-                className="w-full min-h-[44px] px-3.5 py-2.5 text-base border border-outline-variant rounded-md bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="username"
-                disabled={isLoading}
-              />
-            </div>
+          {/* Email */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="login-email" className="text-sm font-semibold text-on-surface">
+              Email Address
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              className={INPUT_CLS}
+              placeholder="name@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="username"
+              disabled={isLoading}
+            />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="password" className="text-sm font-semibold text-on-surface">Password</label>
-            <div className="relative flex items-center w-full">
+          {/* Password */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="login-password" className="text-sm font-semibold text-on-surface">
+              Password
+            </label>
+            <div className="relative">
               <input
-                id="password"
+                id="login-password"
                 type={showPassword ? 'text' : 'password'}
-                className="w-full min-h-[44px] pl-3.5 pr-11 py-2.5 text-base border border-outline-variant rounded-md bg-surface-container-lowest text-on-surface outline-none transition focus:border-brand-blue focus:ring-3 focus:ring-blue-500/15"
+                className={INPUT_CLS + ' pr-11'}
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -150,44 +153,38 @@ function LoginContent() {
               />
               <button
                 type="button"
-                className="absolute right-3 p-1 cursor-pointer flex items-center justify-center text-on-surface-variant rounded hover:bg-surface-container transition"
-                onClick={togglePasswordVisibility}
+                onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 disabled={isLoading}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant
+                           hover:text-on-surface transition-colors rounded
+                           outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1"
               >
-                {showPassword ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                )}
+                <EyeIcon open={showPassword} />
               </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="mt-2 min-h-[44px] bg-brand-deep-slate text-on-primary text-sm font-semibold rounded-md cursor-pointer transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 disabled:bg-surface-dim disabled:text-on-surface-variant disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Verifying Credentials...' : 'Sign In'}
-          </button>
+          <Button type="submit" variant="primary" loading={isLoading} className="w-full mt-1">
+            {isLoading ? 'Verifying credentials…' : 'Sign In'}
+          </Button>
         </form>
 
-        <div className="text-center mt-4 text-sm text-on-surface-variant">
+        <p className="text-center mt-5 text-sm text-on-surface-variant">
           Don't have an account?{' '}
-          <Link href="/signup" className="text-brand-blue hover:underline font-semibold cursor-pointer">
+          <Link
+            href="/signup"
+            className="text-brand-blue font-semibold hover:underline
+                       outline-none focus-visible:underline focus-visible:ring-2
+                       focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded px-0.5"
+          >
             Sign Up
           </Link>
-        </div>
+        </p>
 
-        <div className="text-center mt-6 text-xs text-on-surface-variant">
-          RentFlow Property &amp; Ledger Automation Engine • Phase 2
-        </div>
+        <p className="text-center mt-5 text-xs text-on-surface-variant/60">
+          RentFlow Property &amp; Ledger Automation Engine
+        </p>
       </div>
     </div>
   );
@@ -196,8 +193,8 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-surface">
-        <h2 className="text-xl font-semibold text-brand-deep-slate">Loading Sign In...</h2>
+      <div className="w-full min-h-screen flex items-center justify-center bg-background">
+        <h2 className="text-xl font-semibold text-brand-deep-slate animate-pulse">Loading…</h2>
       </div>
     }>
       <LoginContent />
