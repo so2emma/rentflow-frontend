@@ -133,6 +133,32 @@ export interface TenantResponse {
   id: string; // UUID
   name: string;
   email: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  bvn?: string;
+  employerName?: string;
+  jobTitle?: string;
+  monthlyIncome?: number;
+  incomeVerified?: boolean;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  dateOfBirth?: string;
+}
+
+export interface UpdateTenantProfileRequest {
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  bvn?: string;
+  employerName?: string;
+  jobTitle?: string;
+  monthlyIncome?: number;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  dateOfBirth?: string;
 }
 
 export interface ApiError {
