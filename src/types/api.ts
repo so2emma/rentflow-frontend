@@ -38,14 +38,28 @@ export interface LoginResponse {
 
 export interface PropertyRequest {
   name: string;
-  address: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  propertyType?: string;
+  totalUnits?: number;
+  propertyManagerName?: string;
+  emergencyContactNumber?: string;
   propertyCode: string;
 }
 
 export interface PropertyResponse {
   id: string; // UUID
   name: string;
-  address: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  propertyType?: string;
+  totalUnits?: number;
+  propertyManagerName?: string;
+  emergencyContactNumber?: string;
   propertyCode: string;
 }
 
@@ -55,6 +69,12 @@ export interface UnitRequest {
   unitNumber: string;
   baseRent: number;
   status?: UnitStatus;
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFootage?: number;
+  floorNumber?: string;
+  isFurnished?: boolean;
+  amenities?: string;
 }
 
 export interface UnitResponse {
@@ -64,6 +84,12 @@ export interface UnitResponse {
   unitNumber: string;
   baseRent: number;
   status: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFootage?: number;
+  floorNumber?: string;
+  isFurnished?: boolean;
+  amenities?: string;
 }
 
 export interface LeaseRequest {
