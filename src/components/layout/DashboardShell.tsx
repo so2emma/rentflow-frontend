@@ -8,12 +8,12 @@
 import React, { useState } from 'react';
 import { Sidebar, SidebarNavItem } from './Sidebar';
 import { TopAppBar } from './TopAppBar';
+import {sidebarData} from "@/utils/constants/sidebarData";
 
 interface DashboardShellProps {
   sidebarTitle?: string;
   userLabel?: string;
   userEmail?: string;
-  navItems: SidebarNavItem[];
   activeItem: string;
   onNavChange: (id: string) => void;
   onSignOut: () => void;
@@ -24,22 +24,20 @@ export function DashboardShell({
   sidebarTitle = 'RentFlow',
   userLabel = 'Management Portal',
   userEmail,
-  navItems,
   activeItem,
   onNavChange,
   onSignOut,
   children,
-}: DashboardShellProps) {
+}: Readonly<DashboardShellProps>) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div className="flex w-full h-screen overflow-hidden bg-background">
-      {/* Sidebar - fixed on desktop, drawer on mobile */}
       <Sidebar
         title={sidebarTitle}
         userLabel={userLabel}
         userEmail={userEmail}
-        navItems={navItems}
+        sidebarData={sidebarData}
         activeItem={activeItem}
         onNavChange={onNavChange}
         onSignOut={onSignOut}
@@ -50,7 +48,7 @@ export function DashboardShell({
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col lg:ml-[260px] relative overflow-y-auto w-full">
         {/* Top App Bar */}
-        <TopAppBar 
+        <TopAppBar
           onMenuClick={() => setIsSidebarOpen(true)}
           userEmail={userEmail}
         />

@@ -8,11 +8,11 @@
 'use client';
 
 import React from 'react';
+import {NavItemType, sidebarData} from "@/utils/constants/sidebarData";
 
 export interface SidebarNavItem {
   id: string;
   label: string;
-  /** Material Symbol Outlined icon name (e.g. 'dashboard', 'real_estate_agent') */
   icon: string;
 }
 
@@ -20,7 +20,7 @@ interface SidebarProps {
   title?: string;
   userLabel?: string;
   userEmail?: string;
-  navItems: SidebarNavItem[];
+  sidebarData: NavItemType;
   activeItem: string;
   onNavChange: (id: string) => void;
   onSignOut: () => void;
@@ -32,24 +32,24 @@ export function Sidebar({
   title = 'RentFlow',
   userLabel = 'Management Portal',
   userEmail,
-  navItems,
+  sidebarData,
   activeItem,
   onNavChange,
   onSignOut,
   isOpen,
   onClose,
-}: SidebarProps) {
+}: Readonly<SidebarProps>) {
   return (
     <>
       {/* Mobile backdrop */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-primary-container/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
-      
+
       <nav
         className={`bg-primary-container w-sidebar-width h-screen fixed left-0 top-0 border-r border-outline-variant flex flex-col gap-stack-md py-stack-lg z-50 transition-transform duration-slow ease-standard
                     ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -70,8 +70,7 @@ export function Sidebar({
               </div>
             )}
           </div>
-          {/* Close button for mobile */}
-          <button 
+          <button
             className="lg:hidden text-on-primary-container hover:text-on-primary p-1"
             onClick={onClose}
           >
@@ -81,15 +80,15 @@ export function Sidebar({
 
         {/* Navigation Links */}
         <div className="flex flex-col flex-1 mt-4">
-          {navItems.map((item) => {
+          {sidebarData.navMain.map((item) => {
             const isActive = activeItem === item.id;
-            
+
             return (
               <button
                 key={item.id}
                 onClick={() => {
                   onNavChange(item.id);
-                  onClose(); // Close mobile menu on navigate
+                  onClose();
                 }}
                 className={`
                   flex items-center gap-3 px-6 py-3 font-label-md text-label-md text-left transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset
@@ -100,8 +99,8 @@ export function Sidebar({
                 `}
                 aria-current={isActive ? 'page' : undefined}
               >
-                <span 
-                  className="material-symbols-outlined text-[20px]" 
+                <span
+                  className="material-symbols-outlined text-[20px]"
                   style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
                   aria-hidden="true"
                 >

@@ -13,11 +13,6 @@ import { clearSession } from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
 import { LeaseResponse, LedgerEntryResponse } from '@/types/api';
 
-const NAV_ITEMS = [
-  { id: 'dashboard', label: 'My Dashboard', icon: 'dashboard' },
-  { id: 'lease', label: 'Lease Details', icon: 'description' },
-  { id: 'history', label: 'Payment History', icon: 'receipt_long' },
-];
 
 export default function TenantDashboardPage() {
   const router = useRouter();
@@ -76,28 +71,22 @@ export default function TenantDashboardPage() {
     );
   }
 
-  /* ── Render ─────────────────────────────────────────────────────────── */
-
   return (
     <ProtectedRoute allowedRole="ROLE_TENANT">
       <DashboardShell
         sidebarTitle="RentFlow"
         userLabel="Connected Tenant"
         userEmail={user?.email}
-        navItems={NAV_ITEMS}
         activeItem={activeTab}
         onNavChange={setActiveTab}
         onSignOut={handleLogout}
       >
-        {/* Page header */}
         <div className="flex flex-col gap-1 border-b border-outline-variant pb-6 mb-2">
           <h1 className="font-display-lg text-headline-lg font-bold text-on-surface tracking-tight">Tenant Portal</h1>
           <p className="text-on-surface-variant font-body-lg">
             Monitor your active lease agreement, virtual account, and payment ledger.
           </p>
         </div>
-
-        {/* No active lease */}
         {!lease ? (
           <div className="bg-surface rounded-lg border border-outline-variant p-14 flex flex-col items-center gap-4 text-center">
             <span className="material-symbols-outlined text-[48px] text-on-surface-variant/50">document_scanner</span>
@@ -109,7 +98,6 @@ export default function TenantDashboardPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            {/* Virtual Account Card */}
             <div className="bg-gradient-to-br from-primary to-primary-fixed-dim text-on-primary rounded-lg p-7 flex flex-col gap-5 shadow-[0px_8px_32px_rgba(30,58,138,0.12)]">
               <div className="font-label-md text-label-md text-on-primary/70 uppercase tracking-widest font-semibold">
                 {virtualAccountBank}
