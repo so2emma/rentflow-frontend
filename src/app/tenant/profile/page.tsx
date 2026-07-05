@@ -153,7 +153,11 @@ export default function TenantProfilePage() {
           navItems={NAV_ITEMS}
           activeItem="profile"
           onNavChange={(id) => {
-            if (id !== 'profile') router.push('/tenant/dashboard');
+            if (id === 'history') {
+              router.push('/tenant/history');
+            } else if (id !== 'profile') {
+              router.push('/tenant/dashboard');
+            }
           }}
           onSignOut={() => {
             clearSession();
@@ -177,7 +181,11 @@ export default function TenantProfilePage() {
         navItems={NAV_ITEMS}
         activeItem="profile"
         onNavChange={(id) => {
-          if (id !== 'profile') router.push('/tenant/dashboard');
+          if (id === 'history') {
+            router.push('/tenant/history');
+          } else if (id !== 'profile') {
+            router.push('/tenant/dashboard');
+          }
         }}
         onSignOut={() => {
           clearSession();

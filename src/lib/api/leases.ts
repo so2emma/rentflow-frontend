@@ -1,6 +1,6 @@
 import { AxiosRequestConfig } from 'axios';
 import { apiClient } from './client';
-import { LeaseRequest, LeaseResponse } from '@/types/api';
+import { LeaseRequest, LeaseResponse, InboundTransactionDTO } from '@/types/api';
 
 /**
  * Get all leases associated with the landlord.
@@ -26,6 +26,19 @@ export async function createLease(
  */
 export async function getActiveLease(config?: AxiosRequestConfig): Promise<LeaseResponse> {
   const response = await apiClient.get<LeaseResponse>('/api/v1/leases/active', config);
+  return response.data;
+}
+
+/**
+ * Get inbound transactions associated with the tenant's active lease.
+ */
+export async function getActiveLeaseTransactions(
+  config?: AxiosRequestConfig
+): Promise<InboundTransactionDTO[]> {
+  const response = await apiClient.get<InboundTransactionDTO[]>(
+    '/api/v1/leases/active/transactions',
+    config
+  );
   return response.data;
 }
 

@@ -125,6 +125,8 @@ export default function TenantDashboardPage() {
         onNavChange={(id) => {
           if (id === 'profile') {
             router.push('/tenant/profile');
+          } else if (id === 'history') {
+            router.push('/tenant/history');
           } else {
             setActiveTab(id);
           }
