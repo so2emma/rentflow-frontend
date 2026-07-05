@@ -60,7 +60,7 @@ export default function NewLeasePage() {
   const tenants: TenantResponse[] = tenantsData || [];
 
   const [formData, setFormData] = useState({
-    tenantId: '',
+    tenantEmail: '',
     unitId: '',
     startDate: '',
     endDate: '',
@@ -83,7 +83,7 @@ export default function NewLeasePage() {
       const err = error as ApiErrorResponse;
       if (err.errors) {
         setErrors({
-          tenantId: err.errors.tenantId,
+          tenantEmail: err.errors.tenantEmail,
           unitId: err.errors.unitId,
           startDate: err.errors.startDate,
           endDate: err.errors.endDate,
@@ -122,7 +122,7 @@ export default function NewLeasePage() {
     
     // Basic validation
     const newErrors: Partial<typeof errors> = {};
-    if (!formData.tenantId) newErrors.tenantId = 'Please select a tenant.';
+    if (!formData.tenantEmail) newErrors.tenantEmail = 'Please provide a tenant email.';
     if (!formData.unitId) newErrors.unitId = 'Please select a unit.';
     if (!formData.startDate) newErrors.startDate = 'Start date is required.';
     if (!formData.endDate) newErrors.endDate = 'End date is required.';
@@ -134,7 +134,7 @@ export default function NewLeasePage() {
 
     const graceDays = parseInt(formData.gracePeriodDays) || 5;
     mutation.mutate({
-      tenantId: formData.tenantId,
+      tenantEmail: formData.tenantEmail,
       unitId: formData.unitId,
       startDate: formData.startDate,
       endDate: formData.endDate,
@@ -188,14 +188,10 @@ export default function NewLeasePage() {
           <form onSubmit={handleSubmit} noValidate className="bg-surface rounded-lg border border-outline-variant p-6 flex flex-col gap-6">
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Field label="Select Tenant *" htmlFor="tenantId" error={errors.tenantId}>
-                <select id="tenantId" name="tenantId" className={INPUT_CLS + ' cursor-pointer'}
-                  value={formData.tenantId} onChange={handleChange} required disabled={mutation.isPending}>
-                  <option value="">— Select Tenant —</option>
-                  {tenants.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.email})</option>
-                  ))}
-                </select>
+              <Field label="Tenant Email *" htmlFor="tenantEmail" error={errors.tenantEmail}>
+                <input type="email" id="tenantEmail" name="tenantEmail" className={INPUT_CLS}
+                  placeholder="tenant@example.com"
+                  value={formData.tenantEmail} onChange={handleChange} required disabled={mutation.isPending} />
               </Field>
 
               <Field label="Select Vacant Unit *" htmlFor="unitId" error={errors.unitId}>
