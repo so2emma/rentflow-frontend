@@ -36,3 +36,32 @@ export async function getLeaseById(id: string, config?: AxiosRequestConfig): Pro
   const response = await apiClient.get<LeaseResponse>(`/api/v1/leases/${id}`, config);
   return response.data;
 }
+
+/**
+ * Approve a pending lease by its ID (for tenants).
+ */
+export async function approveLease(id: string, config?: AxiosRequestConfig): Promise<LeaseResponse> {
+  const response = await apiClient.post<LeaseResponse>(`/api/v1/leases/${id}/approve`, null, config);
+  return response.data;
+}
+
+/**
+ * Reject a pending lease by its ID (for tenants).
+ */
+export async function rejectLease(id: string, config?: AxiosRequestConfig): Promise<void> {
+  await apiClient.post(`/api/v1/leases/${id}/reject`, null, config);
+}
+
+/**
+ * Contest a pending lease by its ID (for tenants).
+ */
+export async function contestLease(id: string, reason: string, config?: AxiosRequestConfig): Promise<void> {
+  await apiClient.post(`/api/v1/leases/${id}/contest`, { reason }, config);
+}
+
+/**
+ * Resubmit a contested lease with new ledgers (for landlords).
+ */
+export async function resubmitLease(id: string, ledgers: import('@/types/api').LedgerEntryRequest[], config?: AxiosRequestConfig): Promise<void> {
+  await apiClient.put(`/api/v1/leases/${id}/resubmit`, ledgers, config);
+}
