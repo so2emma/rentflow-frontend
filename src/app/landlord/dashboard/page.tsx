@@ -401,13 +401,23 @@ export default function LandlordDashboardPage() {
                           <StatusBadge status={l.status} />
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => router.push(`/landlord/leases/${l.id}`)}
-                          >
-                            View
-                          </Button>
+                          {l.status === 'CONTESTED' ? (
+                            <Button 
+                              variant="primary" 
+                              size="sm" 
+                              onClick={() => router.push(`/landlord/leases/${l.id}/edit`)}
+                            >
+                              Edit & Resubmit
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => router.push(`/landlord/leases/${l.id}`)}
+                            >
+                              View
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))
