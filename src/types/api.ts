@@ -93,7 +93,7 @@ export interface UnitResponse {
 }
 
 export interface LeaseRequest {
-  tenantId: string; // UUID
+  tenantEmail: string;
   unitId: string; // UUID
   startDate: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
@@ -103,22 +103,25 @@ export interface LeaseRequest {
   initialLedgerEntries?: LedgerEntryRequest[];
 }
 
+export type LeaseStatus = 'PENDING_APPROVAL' | 'PENDING_VIRTUAL_ACCOUNT' | 'ACTIVE' | 'EXPIRED' | 'REJECTED' | 'CONTESTED';
+
 export interface LeaseResponse {
   id: string; // UUID
   tenantId: string; // UUID
-  tenantName?: string;
+  tenantName: string;
   unitId: string; // UUID
-  unitNumber?: string;
-  propertyName?: string;
+  unitNumber: string;
+  propertyName: string;
   startDate: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
   gracePeriodDays?: number;
-  status: string;
-  nombaVactRef?: string;
+  status: LeaseStatus;
+  nombaVactRef: string;
   nombaVactNumber?: string;
   nombaVactBank?: string;
-  baseRent?: number;
-  depositWalletBalance?: number;
+  baseRent: number;
+  depositWalletBalance: number;
+  contestedReason?: string;
 }
 
 export interface LedgerEntryResponse {
