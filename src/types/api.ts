@@ -190,3 +190,26 @@ export interface ApiError {
   code?: string;
   message: string;
 }
+
+export interface PropertyRevenueDTO {
+  propertyId: string;
+  propertyName: string;
+  collected: number;
+  outstanding: number;
+}
+
+export interface RevenueDashboardDTO {
+  totalCollected: number;
+  totalOutstanding: number;
+  propertyRevenues: PropertyRevenueDTO[];
+}
+
+export interface InboundTransactionDTO {
+  id: string;
+  nombaTransactionId: string;
+  amount: number;
+  senderName: string;
+  senderBankName: string;
+  senderAccountNumber: string;
+  transactionTime: string;
+}

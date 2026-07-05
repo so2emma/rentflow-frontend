@@ -33,16 +33,26 @@ export async function getProperty(
 }
 
 /**
- * Update an existing property.
+ * Update an existing property
  */
 export async function updateProperty(
-  propertyId: string,
+  id: string, 
   data: PropertyRequest,
   config?: AxiosRequestConfig
 ): Promise<PropertyResponse> {
-  const response = await apiClient.put<PropertyResponse>(
-    `/api/v1/properties/${propertyId}`,
-    data,
+  const response = await apiClient.put<PropertyResponse>(`/api/v1/properties/${id}`, data, config);
+  return response.data;
+}
+
+/**
+ * Get inbound transactions for a property
+ */
+export async function getPropertyTransactions(
+  propertyId: string,
+  config?: AxiosRequestConfig
+): Promise<import('@/types/api').InboundTransactionDTO[]> {
+  const response = await apiClient.get<import('@/types/api').InboundTransactionDTO[]>(
+    `/api/v1/properties/${propertyId}/transactions`,
     config
   );
   return response.data;
@@ -94,6 +104,20 @@ export async function updateUnit(
   const response = await apiClient.put<UnitResponse>(
     `/api/v1/properties/units/${unitId}`,
     data,
+    config
+  );
+  return response.data;
+}
+
+/**
+ * Get all ledger entries for a specific property (for landlords).
+ */
+export async function getPropertyLedgers(
+  propertyId: string,
+  config?: AxiosRequestConfig
+): Promise<import('@/types/api').LedgerEntryResponse[]> {
+  const response = await apiClient.get<import('@/types/api').LedgerEntryResponse[]>(
+    `/api/v1/properties/${propertyId}/ledgers`,
     config
   );
   return response.data;

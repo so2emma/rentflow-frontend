@@ -11,14 +11,16 @@ import { Button } from '@/components/ui/Button';
 import { getProperties, createProperty, getUnits, createUnit } from '@/lib/api/properties';
 import { getTenants } from '@/lib/api/tenants';
 import { getLeases, createLease } from '@/lib/api/leases';
+import { getRevenueDashboard } from '@/lib/api/dashboard';
 import { clearSession } from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
-import { PropertyResponse, UnitResponse, LeaseResponse, TenantResponse } from '@/types/api';
+import { PropertyResponse, UnitResponse, LeaseResponse, TenantResponse, RevenueDashboardDTO } from '@/types/api';
 import type { ApiErrorResponse } from '@/lib/api/client';
 
-type Tab = 'properties' | 'units' | 'leases';
+type Tab = 'overview' | 'properties' | 'units' | 'leases';
 
 const NAV_ITEMS = [
+  { id: 'overview', label: 'Overview', icon: 'monitoring' },
   { id: 'properties', label: 'Properties', icon: 'domain' },
   { id: 'units', label: 'Units', icon: 'grid_view' },
   { id: 'leases', label: 'Leases', icon: 'description' },
@@ -118,18 +120,20 @@ export default function LandlordDashboardPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore(s => s.user);
 
-  const [activeTab, setActiveTab] = useState<Tab>('properties');
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   // React Query Data
   const { data: propertiesData } = useQuery({ queryKey: ['properties'], queryFn: getProperties });
   const { data: unitsData } = useQuery({ queryKey: ['units'], queryFn: getUnits });
   const { data: leasesData } = useQuery({ queryKey: ['leases'], queryFn: getLeases });
   const { data: tenantsData } = useQuery({ queryKey: ['tenants'], queryFn: getTenants });
+  const { data: revenueData } = useQuery({ queryKey: ['revenueDashboard'], queryFn: getRevenueDashboard });
 
   const properties: PropertyResponse[] = propertiesData || [];
   const units: UnitResponse[] = unitsData || [];
   const leases: LeaseResponse[] = leasesData || [];
   const tenants: TenantResponse[] = tenantsData || [];
+  const revenue: RevenueDashboardDTO | null = revenueData || null;
 
 
 
@@ -176,7 +180,19 @@ export default function LandlordDashboardPage() {
         </div>
 
         {/* Metric cards */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6" aria-label="Portfolio summary">
+        <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6" aria-label="Portfolio summary">
+          <MetricCard
+            label="Total Collected"
+            value={`₦ ${revenue?.totalCollected?.toLocaleString() ?? '0'}`}
+            sub="Lifetime revenue collected"
+            icon="payments"
+          />
+          <MetricCard
+            label="Total Outstanding"
+            value={`₦ ${revenue?.totalOutstanding?.toLocaleString() ?? '0'}`}
+            sub="Pending payments & arrears"
+            icon="pending_actions"
+          />
           <MetricCard
             label="Properties Portfolio"
             value={properties.length}
@@ -197,7 +213,7 @@ export default function LandlordDashboardPage() {
           <MetricCard
             label="Active Contracts"
             value={activeLeases}
-            sub="Running active tenant agreements"
+            sub="Running active agreements"
             icon="description"
           />
         </section>
@@ -209,6 +225,62 @@ export default function LandlordDashboardPage() {
             type={feedback.type}
             onDismiss={() => setFeedback(null)}
           />
+        )}
+
+        {/* ── TAB: Overview ── */}
+        {activeTab === 'overview' && (
+          <div className="flex flex-col gap-6 items-start mt-6">
+            <div className="flex w-full justify-between items-center bg-surface rounded-lg border border-outline-variant p-6">
+              <div>
+                <h2 className="font-headline-md text-title-lg font-bold text-on-surface">Revenue Breakdown</h2>
+                <p className="text-on-surface-variant text-body-md mt-1">Review collected and outstanding revenue for your properties.</p>
+              </div>
+            </div>
+
+            {/* Revenue table */}
+            <div className="w-full bg-surface rounded-lg border border-outline-variant overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-surface-container-low/50">
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Property Name</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Collected</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Outstanding</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-high">
+                  {!revenue || revenue.propertyRevenues.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
+                        No revenue data available.
+                      </td>
+                    </tr>
+                  ) : (
+                    revenue.propertyRevenues.map((p) => (
+                      <tr key={p.propertyId} className="hover:bg-surface-container-low/20 transition-colors group">
+                        <td className="px-6 py-4 font-semibold text-on-surface font-body-md">{p.propertyName}</td>
+                        <td className="px-6 py-4 font-code-md text-secondary">
+                          ₦ {Number(p.collected).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 font-code-md text-error">
+                          ₦ {Number(p.outstanding).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/landlord/properties/${p.propertyId}/revenue`)}
+                          >
+                            View
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {/* ── TAB: Properties ── */}
