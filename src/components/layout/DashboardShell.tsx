@@ -53,6 +53,7 @@ export function DashboardShell({
         <TopAppBar 
           onMenuClick={() => setIsSidebarOpen(true)}
           userEmail={userEmail}
+          onProfileClick={() => onNavChange('profile')}
         />
 
         {/* Page Content */}
