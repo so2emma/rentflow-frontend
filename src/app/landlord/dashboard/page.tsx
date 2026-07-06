@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { getLandlordProfile } from '@/lib/api/landlords';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardShell } from '@/components/layout/DashboardShell';
@@ -26,6 +28,7 @@ const NAV_ITEMS = [
   { id: 'units', label: 'Units', icon: 'grid_view' },
   { id: 'leases', label: 'Leases', icon: 'description' },
   { id: 'payouts', label: 'Payouts', icon: 'account_balance_wallet' },
+  { id: 'profile', label: 'Profile', icon: 'person' },
 ];
 
 /* ── Inline form-input class (kept local, avoids globals.css @apply conflicts) ── */
@@ -198,12 +201,31 @@ function formatDate(isoString: string) {
 /*  Page component                                                             */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-export default function LandlordDashboardPage() {
+function LandlordDashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const user = useAuthStore(s => s.user);
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+
+  const tabParam = searchParams.get('tab');
+
+  useEffect(() => {
+    if (tabParam && ['overview', 'properties', 'units', 'leases', 'payouts'].includes(tabParam)) {
+      setActiveTab(tabParam as Tab);
+    }
+  }, [tabParam]);
+
+  // Query Landlord Profile on mount to check bank details config
+  const { data: landlordProfile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ['landlordProfile'],
+    queryFn: getLandlordProfile,
+  });
+
+  const showWarningBanner = !isProfileLoading && landlordProfile && (
+    !landlordProfile.bankCode || !landlordProfile.bankAccountNumber || !landlordProfile.bankAccountName
+  );
 
   // Properties filter/pagination states
   const [propertiesSearch, setPropertiesSearch] = useState<string>('');
@@ -369,7 +391,14 @@ export default function LandlordDashboardPage() {
         userEmail={user?.email}
         navItems={NAV_ITEMS}
         activeItem={activeTab}
-        onNavChange={(id) => { setActiveTab(id as Tab); setFeedback(null); }}
+        onNavChange={(id) => {
+          if (id === 'profile') {
+            router.push('/landlord/profile');
+          } else {
+            setActiveTab(id as Tab);
+            setFeedback(null);
+          }
+        }}
         onSignOut={handleLogout}
       >
         {/* Page header */}
@@ -379,6 +408,20 @@ export default function LandlordDashboardPage() {
             Define properties, units, and assign tenant leases with automated ledger splitting.
           </p>
         </div>
+
+        {/* Missing Settlement Details Warning Alert Banner */}
+        {showWarningBanner && (
+          <div role="alert" className="bg-warning-container border border-warning/20 text-on-warning-container p-4 rounded-lg flex items-start gap-3 animate-[fadeIn_150ms_ease-out]">
+            <span className="material-symbols-outlined text-warning">warning</span>
+            <div className="flex-1 font-body-md">
+              <span className="font-bold">Important:</span> You have not configured your payout settlement details. Please go to the{' '}
+              <Link href="/landlord/profile" className="underline font-semibold hover:text-on-warning-container transition-colors">
+                Profile tab
+              </Link>{' '}
+              to add your bank account so payouts can be dispatched.
+            </div>
+          </div>
+        )}
 
         {/* Metric cards */}
         <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6" aria-label="Portfolio summary">
@@ -1099,5 +1142,17 @@ export default function LandlordDashboardPage() {
 
       </DashboardShell>
     </ProtectedRoute>
+  );
+}
+
+export default function LandlordDashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full min-h-screen flex items-center justify-center bg-background">
+        <h2 className="text-xl font-semibold text-brand-deep-slate animate-pulse">Loading Landlord Portal…</h2>
+      </div>
+    }>
+      <LandlordDashboardContent />
+    </Suspense>
   );
 }

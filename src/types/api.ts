@@ -8,6 +8,26 @@ export interface TenantDetails {
   bvn: string;
 }
 
+export interface LandlordResponse {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  bankCode?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
+}
+
+export interface LandlordProfileRequest {
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  bankCode?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
+}
+
 export interface SignUpRequest {
   email: string;
   password?: string;
@@ -28,6 +48,7 @@ export interface SignUpResponse {
 export interface LoginRequest {
   email: string;
   password?: string;
+  role?: string;
 }
 
 export interface LoginResponse {
