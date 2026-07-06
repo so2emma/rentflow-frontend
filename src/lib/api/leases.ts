@@ -78,3 +78,20 @@ export async function contestLease(id: string, reason: string, config?: AxiosReq
 export async function resubmitLease(id: string, ledgers: import('@/types/api').LedgerEntryRequest[], config?: AxiosRequestConfig): Promise<void> {
   await apiClient.put(`/api/v1/leases/${id}/resubmit`, ledgers, config);
 }
+
+/**
+ * Download tenant statement for active lease as a CSV blob.
+ */
+export async function downloadTenantStatement(
+  startDate: string,
+  endDate: string,
+  config?: AxiosRequestConfig
+): Promise<Blob> {
+  const response = await apiClient.get<Blob>('/api/v1/leases/active/statements/download', {
+    ...config,
+    params: { startDate, endDate, ...config?.params },
+    responseType: 'blob',
+  });
+  return response.data;
+}
+
