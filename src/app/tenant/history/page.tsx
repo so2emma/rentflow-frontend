@@ -6,11 +6,12 @@ import { useQuery } from '@tanstack/react-query';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardShell } from '@/components/layout/DashboardShell';
 import { MetricCard } from '@/components/ui/MetricCard';
-import { getActiveLease, getActiveLeaseTransactions } from '@/lib/api/leases';
+import { getActiveLease, getActiveLeaseTransactions, downloadTenantStatement } from '@/lib/api/leases';
 import { getActiveLeaseLedgers } from '@/lib/api/ledgers';
 import { clearSession } from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
 import { InboundTransactionDTO, LedgerEntryResponse } from '@/types/api';
+
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'My Dashboard', icon: 'dashboard' },
@@ -24,6 +25,35 @@ export default function TenantPaymentHistoryPage() {
 
   const [selectedTransaction, setSelectedTransaction] = useState<InboundTransactionDTO | null>(null);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
+
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownloadStatement = async () => {
+    if (!startDate || !endDate) return;
+    try {
+      setIsDownloading(true);
+      setDownloadError(null);
+      const blob = await downloadTenantStatement(startDate, endDate);
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tenant-statement-${startDate}-to-${endDate}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Failed to download tenant statement:', err);
+      setDownloadError(err?.message || 'Failed to download statement. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
 
   const { data: lease, isLoading: isLeaseLoading } = useQuery({
     queryKey: ['activeLease'],
@@ -47,7 +77,25 @@ export default function TenantPaymentHistoryPage() {
 
   const ledgers: LedgerEntryResponse[] = ledgersData || [];
   const transactions: InboundTransactionDTO[] = transactionsData || [];
+
+  const filteredTransactions = transactions.filter((t) => {
+    if (!t.transactionTime) return true;
+    const txDate = new Date(t.transactionTime);
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      if (txDate < start) return false;
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      if (txDate > end) return false;
+    }
+    return true;
+  });
+
   const loading = isLeaseLoading || (!!lease && (isLedgersLoading || isTransactionsLoading));
+
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -160,8 +208,8 @@ export default function TenantPaymentHistoryPage() {
               className="bg-surface rounded-lg border border-outline-variant overflow-hidden shadow-sm"
               aria-labelledby="history-ledger-title"
             >
-              <div className="p-6 border-b border-outline-variant bg-surface-container-lowest flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                <div>
+              <div className="p-6 border-b border-outline-variant bg-surface-container-lowest flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div className="flex-1 min-w-[280px]">
                   <h2 id="history-ledger-title" className="font-headline-md text-title-lg font-bold text-on-surface">
                     Successful Inbound Payments
                   </h2>
@@ -169,12 +217,66 @@ export default function TenantPaymentHistoryPage() {
                     A list of all direct transfers recognized by your virtual deposit account.
                   </p>
                 </div>
-                {lease.nombaVactNumber && (
-                  <div className="bg-[#e6f4ea] text-[#137333] px-4 py-2.5 rounded-xl border border-[#ceead6] flex items-center gap-2 text-xs font-semibold max-w-fit">
-                    <span className="material-symbols-outlined text-[18px]">info</span>
-                    <span>Virtual Rent Account: <strong>{lease.nombaVactNumber}</strong></span>
+                
+                {/* Date Filters and Download Button */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="tenant-start-date" className="text-xs font-semibold text-on-surface-variant">From</label>
+                    <input
+                      type="date"
+                      id="tenant-start-date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="px-3 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none transition-colors duration-[150ms] focus:border-primary focus:ring-1 focus:ring-primary text-sm min-h-[40px]"
+                    />
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="tenant-end-date" className="text-xs font-semibold text-on-surface-variant">To</label>
+                    <input
+                      type="date"
+                      id="tenant-end-date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="px-3 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none transition-colors duration-[150ms] focus:border-primary focus:ring-1 focus:ring-primary text-sm min-h-[40px]"
+                    />
+                  </div>
+                  {(startDate || endDate) && (
+                    <button
+                      onClick={() => { setStartDate(''); setEndDate(''); setDownloadError(null); }}
+                      className="px-3 py-2 border border-outline-variant hover:bg-surface-variant/20 text-on-surface-variant font-label-md font-semibold text-sm rounded-lg transition-colors min-h-[40px]"
+                    >
+                      Clear
+                    </button>
+                  )}
+                  <div className="flex flex-col">
+                    <button
+                      onClick={handleDownloadStatement}
+                      disabled={isDownloading || !startDate || !endDate}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1e293b] hover:bg-[#0f172a] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-label-md font-semibold text-sm rounded-lg transition-colors shadow-sm min-h-[40px]"
+                    >
+                      {isDownloading ? (
+                        <>
+                          <span className="animate-spin mr-1 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[18px]">download</span>
+                          Download CSV Statement
+                        </>
+                      )}
+                    </button>
+                    {downloadError && (
+                      <span className="text-error text-[11px] mt-1 font-medium">{downloadError}</span>
+                    )}
+                  </div>
+                  {lease.nombaVactNumber && (
+                    <div className="bg-[#e6f4ea] text-[#137333] px-4 py-2.5 rounded-xl border border-[#ceead6] flex items-center gap-2 text-xs font-semibold max-w-fit">
+                      <span className="material-symbols-outlined text-[18px]">info</span>
+                      <span>Virtual Rent Account: <strong>{lease.nombaVactNumber}</strong></span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -190,20 +292,26 @@ export default function TenantPaymentHistoryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-container-high">
-                    {transactions.length === 0 ? (
+                    {filteredTransactions.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center gap-3 text-on-surface-variant">
                             <span className="material-symbols-outlined text-[48px] text-on-surface-variant/30">payments</span>
                             <div>
-                              <strong className="block text-on-surface font-body-lg">No payment history</strong>
-                              <p className="font-body-md">You have not completed any virtual account transfers yet.</p>
+                              <strong className="block text-on-surface font-body-lg">
+                                {startDate || endDate ? 'No transactions match' : 'No payment history'}
+                              </strong>
+                              <p className="font-body-md">
+                                {startDate || endDate
+                                  ? 'Try choosing a different date range.'
+                                  : 'You have not completed any virtual account transfers yet.'}
+                              </p>
                             </div>
                           </div>
                         </td>
                       </tr>
                     ) : (
-                      transactions.map((t) => (
+                      filteredTransactions.map((t) => (
                         <tr key={t.id} className="hover:bg-surface-container-low/20 transition-colors group">
                           <td className="px-6 py-4 font-body-md text-on-surface">
                             {new Date(t.transactionTime).toLocaleString()}
@@ -235,6 +343,7 @@ export default function TenantPaymentHistoryPage() {
                   </tbody>
                 </table>
               </div>
+
             </section>
           </div>
         )}
