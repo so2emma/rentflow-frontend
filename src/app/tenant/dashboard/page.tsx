@@ -11,7 +11,7 @@ import { getActiveLease, approveLease, rejectLease, contestLease } from '@/lib/a
 import { getActiveLeaseLedgers } from '@/lib/api/ledgers';
 import { clearSession } from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
-import { LeaseResponse, LedgerEntryResponse } from '@/types/api';
+import { LedgerEntryResponse } from '@/types/api';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'My Dashboard', icon: 'dashboard' },
@@ -345,10 +345,7 @@ export default function TenantDashboardPage() {
 
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-black/10 p-3 rounded-lg">
                 <p className="font-body-sm text-[13px] text-on-primary/80 leading-relaxed flex-1">
-                  <strong>Payment Instruction:</strong> To pay rent of{' '}
-                  <span className="font-code-md">₦{Number(rentAmount).toLocaleString()}</span>, transfer the
-                  outstanding amount to this dedicated virtual account. Payments are automatically recognised,
-                  recorded in the ledger, and split to settlement wallets.
+                  <strong>Payment Instruction:</strong> Transfer the outstanding balance plus a <strong>₦150</strong> platform fee to this dedicated virtual account. Payments are automatically recognised, recorded in the ledger, and split to settlement wallets.
                 </p>
                 {virtualAccountNumber !== 'Pending...' && (
                   <button
@@ -361,6 +358,17 @@ export default function TenantDashboardPage() {
                     {copiedItem === 'all' ? 'Copied Details' : 'Copy All Details'}
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Flat platform fee warning banner */}
+            <div className="bg-warning-container border border-warning/20 rounded-2xl p-5 flex gap-4 text-on-warning-container shadow-sm">
+              <span className="material-symbols-outlined text-warning text-3xl shrink-0 mt-0.5 animate-pulse">info</span>
+              <div className="flex flex-col gap-1">
+                <h4 className="font-headline-sm text-title-md font-bold tracking-tight text-on-warning-container">Platform Transfer Fee Notice</h4>
+                <p className="font-body-md text-on-warning-container/90 leading-relaxed">
+                  A flat platform fee of <strong>₦150</strong> is deducted from every transfer. Please add <strong>₦150</strong> to your transfer amount to ensure it fully covers your outstanding balance (e.g. transfer <strong>₦10,150</strong> to pay <strong>₦10,000</strong>).
+                </p>
               </div>
             </div>
 
