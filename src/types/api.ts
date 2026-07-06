@@ -213,3 +213,21 @@ export interface InboundTransactionDTO {
   senderAccountNumber: string;
   transactionTime: string;
 }
+
+export type PayoutStatus = 'SUCCESS' | 'PENDING' | 'FAILED';
+
+export interface SplitPayoutResponse {
+  id: string;
+  inboundTransactionId: string;
+  amount: number;
+  splitPercentage: number;
+  recipientType: 'LANDLORD' | 'MAINTENANCE_RESERVE' | 'PLATFORM_COMMISSION';
+  recipientName: string;
+  destinationBankName: string;
+  destinationAccountNumber: string;
+  status: PayoutStatus;
+  createdAt: string;
+  updatedAt?: string;
+  errorMessage?: string;
+}
+
