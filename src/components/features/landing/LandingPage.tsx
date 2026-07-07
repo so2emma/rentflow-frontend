@@ -7,6 +7,37 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
+  const [benefitTab, setBenefitTab] = useState<"landlord" | "tenant">("landlord");
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+
+  const testimonials = [
+    {
+      quote: "RentFlow reduced our month-end reconciliation time from five days to less than two hours. The automated split payouts alone saved us the cost of a full-time bookkeeper.",
+      author: "Sarah Jenkins",
+      role: "Director of Operations, Horizon Management",
+      avatar: "/testimonial-sarah.png",
+    },
+    {
+      quote: "Managing co-investor payouts was a monthly headache. With RentFlow, payouts are split and transferred directly at the bank level. Absolute game changer.",
+      author: "Marcus Vance",
+      role: "Property Portfolio Owner",
+      avatar: "/avatar-1.png",
+    },
+    {
+      quote: "As roommates, splitting rent and utilities used to be a source of tension. Now we each pay our share directly on RentFlow, and the ledger shows exactly who paid what.",
+      author: "Liam Chen",
+      role: "Tenant at Vesta Living",
+      avatar: "/avatar-2.png",
+    }
+  ];
+
+  // Testimonials auto-advance
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveTestimonial((prev) => (prev === testimonials.length - 1 ? 0 : prev + 1));
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [activeTestimonial]);
 
   // Track scroll position to change nav bar styling on scroll
   useEffect(() => {
@@ -57,10 +88,31 @@ export default function LandingPage() {
             </a>
             <a
               className="text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded"
+              href="#how-it-works"
+              onClick={(e) => handleSmoothScroll(e, "how-it-works")}
+            >
+              How It Works
+            </a>
+            <a
+              className="text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded"
+              href="#audience-benefits"
+              onClick={(e) => handleSmoothScroll(e, "audience-benefits")}
+            >
+              Advantages
+            </a>
+            <a
+              className="text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded"
               href="#testimonials"
               onClick={(e) => handleSmoothScroll(e, "testimonials")}
             >
               Testimonials
+            </a>
+            <a
+              className="text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded"
+              href="#faq"
+              onClick={(e) => handleSmoothScroll(e, "faq")}
+            >
+              FAQ
             </a>
             <Link
               className="text-label-md text-primary hover:text-secondary transition-colors font-semibold outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded px-2 py-1"
@@ -101,10 +153,31 @@ export default function LandingPage() {
             </a>
             <a
               className="text-body-lg text-on-surface-variant hover:text-primary transition-colors"
+              href="#how-it-works"
+              onClick={(e) => handleSmoothScroll(e, "how-it-works")}
+            >
+              How It Works
+            </a>
+            <a
+              className="text-body-lg text-on-surface-variant hover:text-primary transition-colors"
+              href="#audience-benefits"
+              onClick={(e) => handleSmoothScroll(e, "audience-benefits")}
+            >
+              Advantages
+            </a>
+            <a
+              className="text-body-lg text-on-surface-variant hover:text-primary transition-colors"
               href="#testimonials"
               onClick={(e) => handleSmoothScroll(e, "testimonials")}
             >
               Testimonials
+            </a>
+            <a
+              className="text-body-lg text-on-surface-variant hover:text-primary transition-colors"
+              href="#faq"
+              onClick={(e) => handleSmoothScroll(e, "faq")}
+            >
+              FAQ
             </a>
             <hr className="border-outline-variant/60" />
             <Link
@@ -393,34 +466,390 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonial Section */}
-      <section className="py-24 bg-primary-container text-white relative overflow-hidden" id="testimonials">
+      {/* How It Works Section */}
+      <section className="py-24 bg-white scroll-mt-16" id="how-it-works">
+        <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <span className="text-secondary font-bold text-label-md tracking-wider uppercase">Process Overview</span>
+            <h2 className="text-headline-lg text-primary mt-2 mb-4 font-bold">Simple, transparent, automated</h2>
+            <p className="text-body-lg text-on-surface-variant">
+              Setting up RentFlow takes minutes. Once set up, the entire payment cycle runs securely in the background.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-gutter relative">
+            {/* Connector lines between steps for desktop */}
+            <div className="hidden md:block absolute top-[40%] left-[15%] right-[15%] h-0.5 bg-outline-variant/60 -z-0"></div>
+
+            {/* Step 1 */}
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-8 flex flex-col gap-6 relative shadow-sm hover:shadow-card-hover transition-all z-1">
+              <div className="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center text-title-lg font-bold font-mono shadow-sm">
+                1
+              </div>
+              <div>
+                <h3 className="text-title-lg text-primary font-bold mb-2">Connect & Invite</h3>
+                <p className="text-body-md text-on-surface-variant">
+                  Landlords upload their property details and invite tenants. Tenants verify their identities and link their banking methods securely in under two minutes.
+                </p>
+              </div>
+              <div className="mt-auto pt-4 border-t border-outline-variant/40 flex items-center gap-2 text-label-sm text-on-surface-variant font-medium">
+                <span className="material-symbols-outlined text-secondary text-[18px]">verified</span> Secure Plaid integration
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-8 flex flex-col gap-6 relative shadow-sm hover:shadow-card-hover transition-all z-1">
+              <div className="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center text-title-lg font-bold font-mono shadow-sm">
+                2
+              </div>
+              <div>
+                <h3 className="text-title-lg text-primary font-bold mb-2">Configure Rules</h3>
+                <p className="text-body-md text-on-surface-variant">
+                  Set up rent split configurations for co-tenants, allocation rules for management fees, utility billing formulas (RUBS), and multi-owner disbursements.
+                </p>
+              </div>
+              <div className="mt-auto pt-4 border-t border-outline-variant/40 flex items-center gap-2 text-label-sm text-on-surface-variant font-medium">
+                <span className="material-symbols-outlined text-secondary text-[18px]">settings_ethernet</span> Configurable splits logic
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-md p-8 flex flex-col gap-6 relative shadow-sm hover:shadow-card-hover transition-all z-1">
+              <div className="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center text-title-lg font-bold font-mono shadow-sm">
+                3
+              </div>
+              <div>
+                <h3 className="text-title-lg text-primary font-bold mb-2">Collect & Distribute</h3>
+                <p className="text-body-md text-on-surface-variant">
+                  When rent is due, tenants pay their portion. RentFlow instantly reconciles payments, updates the ledger, and disperses payments to owners and vendors.
+                </p>
+              </div>
+              <div className="mt-auto pt-4 border-t border-outline-variant/40 flex items-center gap-2 text-label-sm text-on-surface-variant font-medium">
+                <span className="material-symbols-outlined text-secondary text-[18px]">account_balance_wallet</span> Same-day ACH processing
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Landlords & Tenants Section */}
+      <section className="py-24 bg-surface-container-low border-y border-outline-variant/60 scroll-mt-16" id="audience-benefits">
+        <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <span className="text-secondary font-bold text-label-md tracking-wider uppercase">Built for the Entire Ecosystem</span>
+            <h2 className="text-headline-lg text-primary mt-2 mb-4 font-bold">Tailored experiences for everyone</h2>
+            <p className="text-body-lg text-on-surface-variant">
+              RentFlow bridges the gap between property owners and renters, bringing efficiency, clarity, and trust to daily management.
+            </p>
+          </div>
+
+          {/* Tab Toggle */}
+          <div className="flex justify-center mb-12">
+            <div className="bg-white p-1 rounded border border-outline-variant flex gap-1">
+              <button
+                onClick={() => setBenefitTab("landlord")}
+                className={`px-6 py-2 rounded text-label-md font-semibold transition-all duration-base ${
+                  benefitTab === "landlord"
+                    ? "bg-primary text-on-primary shadow-sm"
+                    : "text-on-surface-variant hover:text-primary"
+                }`}
+              >
+                For Landlords & Owners
+              </button>
+              <button
+                onClick={() => setBenefitTab("tenant")}
+                className={`px-6 py-2 rounded text-label-md font-semibold transition-all duration-base ${
+                  benefitTab === "tenant"
+                    ? "bg-primary text-on-primary shadow-sm"
+                    : "text-on-surface-variant hover:text-primary"
+                }`}
+              >
+                For Renters & Tenants
+              </button>
+            </div>
+          </div>
+
+          {/* Benefits Content */}
+          <div className="grid md:grid-cols-2 gap-gutter items-stretch">
+            {/* Benefit Cards column */}
+            <div className="flex flex-col gap-stack-md justify-between">
+              {benefitTab === "landlord" ? (
+                <>
+                  <div className="bg-white border border-outline-variant rounded-md p-6 shadow-sm hover:shadow-card-hover transition-all duration-base flex gap-4">
+                    <div className="w-10 h-10 bg-secondary-container/40 rounded-sm flex items-center justify-center text-on-secondary-container border border-secondary-container/80 shrink-0">
+                      <span className="material-symbols-outlined text-[22px]">payments</span>
+                    </div>
+                    <div>
+                      <h3 className="text-title-md text-primary font-bold mb-1">Automated Split Payouts</h3>
+                      <p className="text-body-md text-on-surface-variant">
+                        Instantly route rent into separate accounts: reserves, management fees, and multiple co-owners, eliminating manual transfers.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-outline-variant rounded-md p-6 shadow-sm hover:shadow-card-hover transition-all duration-base flex gap-4">
+                    <div className="w-10 h-10 bg-primary-container/10 rounded-sm flex items-center justify-center text-primary border border-outline-variant/60 shrink-0">
+                      <span className="material-symbols-outlined text-[22px]">account_balance</span>
+                    </div>
+                    <div>
+                      <h3 className="text-title-md text-primary font-bold mb-1">Zero-Manual Reconciliation</h3>
+                      <p className="text-body-md text-on-surface-variant">
+                        With dedicated virtual account routing, payments are instantly matched to the right tenant ledger and lease item.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-outline-variant rounded-md p-6 shadow-sm hover:shadow-card-hover transition-all duration-base flex gap-4">
+                    <div className="w-10 h-10 bg-secondary-container/40 rounded-sm flex items-center justify-center text-on-secondary-container border border-secondary-container/80 shrink-0">
+                      <span className="material-symbols-outlined text-[22px]">receipt_long</span>
+                    </div>
+                    <div>
+                      <h3 className="text-title-md text-primary font-bold mb-1">Automated Utility RUBS</h3>
+                      <p className="text-body-md text-on-surface-variant">
+                        Allocate shared utility bills to units instantly based on custom formulas (square footage, occupant count) and invoice them automatically.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-white border border-outline-variant rounded-md p-6 shadow-sm hover:shadow-card-hover transition-all duration-base flex gap-4">
+                    <div className="w-10 h-10 bg-secondary-container/40 rounded-sm flex items-center justify-center text-on-secondary-container border border-secondary-container/80 shrink-0">
+                      <span className="material-symbols-outlined text-[22px]">group</span>
+                    </div>
+                    <div>
+                      <h3 className="text-title-md text-primary font-bold mb-1">Seamless Rent Splitting</h3>
+                      <p className="text-body-md text-on-surface-variant">
+                        Co-tenants can pay their individual portions directly. No more Venmo requests or writing single checks.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-outline-variant rounded-md p-6 shadow-sm hover:shadow-card-hover transition-all duration-base flex gap-4">
+                    <div className="w-10 h-10 bg-primary-container/10 rounded-sm flex items-center justify-center text-primary border border-outline-variant/60 shrink-0">
+                      <span className="material-symbols-outlined text-[22px]">credit_card</span>
+                    </div>
+                    <div>
+                      <h3 className="text-title-md text-primary font-bold mb-1">Flexible Payment Methods</h3>
+                      <p className="text-body-md text-on-surface-variant">
+                        Pay via card, Apple Pay, or direct bank transfer (ACH) with instant confirmation and automated autopay options.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-outline-variant rounded-md p-6 shadow-sm hover:shadow-card-hover transition-all duration-base flex gap-4">
+                    <div className="w-10 h-10 bg-secondary-container/40 rounded-sm flex items-center justify-center text-on-secondary-container border border-secondary-container/80 shrink-0">
+                      <span className="material-symbols-outlined text-[22px]">receipt</span>
+                    </div>
+                    <div>
+                      <h3 className="text-title-md text-primary font-bold mb-1">Utility & Rent Transparency</h3>
+                      <p className="text-body-md text-on-surface-variant">
+                        View exactly how your utility bills are calculated. Access complete ledger history and download invoices at any time.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Visual illustration box */}
+            <div className="bg-white border border-outline-variant rounded-md p-8 relative overflow-hidden flex flex-col justify-between shadow-sm">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-secondary/5 rounded-full blur-[60px] translate-x-1/4 -translate-y-1/4 pointer-events-none"></div>
+              <div>
+                <span className="text-secondary font-bold text-code-md uppercase tracking-wider">
+                  {benefitTab === "landlord" ? "Landlord Advantages" : "Tenant Advantages"}
+                </span>
+                <h3 className="text-headline-md text-primary font-bold mt-2 mb-4">
+                  {benefitTab === "landlord"
+                    ? "Optimize cash flow and streamline administration at scale."
+                    : "Enjoy a friction-free renting experience built for modern living."}
+                </h3>
+                <p className="text-body-md text-on-surface-variant mb-6 leading-relaxed">
+                  {benefitTab === "landlord"
+                    ? "RentFlow automates the complexities of real estate financials, giving you absolute transparency over payouts, tax splits, and unit balances."
+                    : "No more paper invoices, awkward rent division discussions with roommates, or late fees. Manage your lease, payments, and invoices in one secure hub."}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-outline-variant/60 pt-6">
+                <p className="text-label-md text-primary font-bold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-secondary text-[20px]">check_circle</span>
+                  {benefitTab === "landlord" ? "Reduce overhead by up to 80%" : "Build positive credit with on-time payments"}
+                </p>
+                <p className="text-label-md text-primary font-bold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-secondary text-[20px]">check_circle</span>
+                  {benefitTab === "landlord" ? "Reconcile instantly on day one" : "Access 24/7 landlord communication"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonial Section with Carousel */}
+      <section className="py-24 bg-primary text-white relative overflow-hidden" id="testimonials">
         <div
-          className="absolute inset-0 opacity-10 pointer-events-none"
+          className="absolute inset-0 opacity-5 pointer-events-none"
           style={{
             backgroundImage: "radial-gradient(white 1px, transparent 1px)",
             backgroundSize: "24px 24px",
           }}
         ></div>
         
-        <div className="max-w-4xl mx-auto px-margin-mobile md:px-margin-desktop relative z-base text-center">
-          <span className="material-symbols-outlined text-[56px] text-secondary opacity-40 mb-6 leading-none select-none" aria-hidden="true">
+        <div className="max-w-5xl mx-auto px-margin-mobile md:px-margin-desktop relative z-base text-center">
+          <span className="material-symbols-outlined text-[56px] text-secondary opacity-40 mb-2 leading-none select-none" aria-hidden="true">
             format_quote
           </span>
-          <h2 className="text-headline-lg md:text-[36px] md:leading-[44px] mb-10 font-bold max-w-3xl mx-auto italic tracking-tight text-white">
-            "RentFlow reduced our month-end reconciliation time from five days to less than two hours. The automated split payouts alone saved us the cost of a full-time bookkeeper."
-          </h2>
-          <div className="flex items-center justify-center gap-4">
-            <img
-              className="w-14 h-14 rounded-full border-2 border-emerald-500/50 object-cover"
-              alt="Sarah Jenkins Headshot Portrait"
-              src="/testimonial-sarah.png"
-              loading="lazy"
-            />
-            <div className="text-left">
-              <p className="text-title-lg font-bold text-white leading-tight">Sarah Jenkins</p>
-              <p className="text-body-md text-on-primary-container">Director of Operations, Horizon Management</p>
+          
+          {/* Carousel Track */}
+          <div className="relative min-h-[340px] sm:min-h-[260px] md:min-h-[200px] flex items-center justify-center overflow-hidden px-4 md:px-12">
+            {testimonials.map((t, idx) => (
+              <div
+                key={idx}
+                className={`absolute w-full max-w-4xl transition-all duration-slow ease-emphasized flex flex-col items-center justify-center ${
+                  idx === activeTestimonial
+                    ? "opacity-100 translate-x-0 scale-100 pointer-events-auto"
+                    : idx < activeTestimonial
+                    ? "opacity-0 -translate-x-16 scale-95 pointer-events-none"
+                    : "opacity-0 translate-x-16 scale-95 pointer-events-none"
+                }`}
+              >
+                <h2 className="text-title-lg sm:text-headline-md md:text-headline-lg mb-8 font-bold max-w-3xl mx-auto italic tracking-tight text-white leading-relaxed">
+                  "{t.quote}"
+                </h2>
+                <div className="flex items-center justify-center gap-4">
+                  <img
+                    className="w-12 h-12 rounded-full border-2 border-secondary/50 object-cover"
+                    alt={`${t.author} Headshot Portrait`}
+                    src={t.avatar}
+                    loading="lazy"
+                  />
+                  <div className="text-left">
+                    <p className="text-title-md font-bold text-white leading-tight">{t.author}</p>
+                    <p className="text-label-md text-emerald-300 font-medium">{t.role}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="flex justify-between items-center max-w-md mx-auto mt-8 px-4 font-medium">
+            <button
+              onClick={() => setActiveTestimonial((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1))}
+              className="w-10 h-10 rounded-full border border-white/20 hover:border-white/60 hover:bg-white/10 flex items-center justify-center text-white transition-all outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+              aria-label="Previous Testimonial"
+            >
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span>
+            </button>
+
+            {/* Dots */}
+            <div className="flex gap-2">
+              {testimonials.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveTestimonial(idx)}
+                  className={`h-2 rounded-full transition-all duration-base ${
+                    idx === activeTestimonial ? "bg-secondary w-6" : "bg-white/30 hover:bg-white/55 w-2"
+                  }`}
+                  aria-label={`Go to testimonial slide ${idx + 1}`}
+                />
+              ))}
             </div>
+
+            <button
+              onClick={() => setActiveTestimonial((prev) => (prev === testimonials.length - 1 ? 0 : prev + 1))}
+              className="w-10 h-10 rounded-full border border-white/20 hover:border-white/60 hover:bg-white/10 flex items-center justify-center text-white transition-all outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+              aria-label="Next Testimonial"
+            >
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-24 bg-surface-container-low border-y border-outline-variant/60 scroll-mt-16" id="faq">
+        <div className="max-w-4xl mx-auto px-margin-mobile md:px-margin-desktop">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <span className="text-secondary font-bold text-label-md tracking-wider uppercase">Got Questions?</span>
+            <h2 className="text-headline-lg text-primary mt-2 mb-4 font-bold">Frequently Asked Questions</h2>
+            <p className="text-body-lg text-on-surface-variant">
+              Everything you need to know about RentFlow's security, billing, and configurations.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {/* FAQ Item 1 */}
+            <details className="group border border-outline-variant rounded-md bg-white p-6 [&_summary::-webkit-details-marker]:hidden cursor-pointer" {...({ name: "faq-accordion" } as any)}>
+              <summary className="flex justify-between items-center text-title-md text-primary font-bold outline-none select-none">
+                <span>How does the automated split payout work?</span>
+                <span className="material-symbols-outlined transition-transform duration-base group-open:rotate-180 text-on-surface-variant group-hover:text-primary">
+                  expand_more
+                </span>
+              </summary>
+              <div className="mt-4 text-body-md text-on-surface-variant border-t border-outline-variant/60 pt-4 leading-relaxed cursor-default animate-[slideDown_150ms_ease-out]" onClick={(e) => e.stopPropagation()}>
+                <p>
+                  When a tenant pays their rent, RentFlow's processing engine uses your configured rules to split the incoming funds. It immediately routes the management fee to the property manager, utility reserves to the reserve account, and splits the remaining balance across multiple co-owners' bank accounts. All payouts are executed in parallel via secure bank transfers.
+                </p>
+              </div>
+            </details>
+
+            {/* FAQ Item 2 */}
+            <details className="group border border-outline-variant rounded-md bg-white p-6 [&_summary::-webkit-details-marker]:hidden cursor-pointer" {...({ name: "faq-accordion" } as any)}>
+              <summary className="flex justify-between items-center text-title-md text-primary font-bold outline-none select-none">
+                <span>Is payment processing secure on RentFlow?</span>
+                <span className="material-symbols-outlined transition-transform duration-base group-open:rotate-180 text-on-surface-variant group-hover:text-primary">
+                  expand_more
+                </span>
+              </summary>
+              <div className="mt-4 text-body-md text-on-surface-variant border-t border-outline-variant/60 pt-4 leading-relaxed cursor-default animate-[slideDown_150ms_ease-out]" onClick={(e) => e.stopPropagation()}>
+                <p>
+                  Yes, RentFlow uses bank-level security. We integrate with Plaid for secure banking connection and credentialing, and utilize institutional payment partners for ACH transfer clearing. No sensitive card or banking credentials are ever stored directly on our servers.
+                </p>
+              </div>
+            </details>
+
+            {/* FAQ Item 3 */}
+            <details className="group border border-outline-variant rounded-md bg-white p-6 [&_summary::-webkit-details-marker]:hidden cursor-pointer" {...({ name: "faq-accordion" } as any)}>
+              <summary className="flex justify-between items-center text-title-md text-primary font-bold outline-none select-none">
+                <span>Can co-tenants or roommates split payments automatically?</span>
+                <span className="material-symbols-outlined transition-transform duration-base group-open:rotate-180 text-on-surface-variant group-hover:text-primary">
+                  expand_more
+                </span>
+              </summary>
+              <div className="mt-4 text-body-md text-on-surface-variant border-t border-outline-variant/60 pt-4 leading-relaxed cursor-default animate-[slideDown_150ms_ease-out]" onClick={(e) => e.stopPropagation()}>
+                <p>
+                  Absolutely. Landlords can set up split-lease rules, or tenants can specify their custom split shares directly inside their portal. RentFlow will automatically generate individual payment requests for each roommate. If one tenant is late, RentFlow alerts the landlord but tracks the status of each individual share separately.
+                </p>
+              </div>
+            </details>
+
+            {/* FAQ Item 4 */}
+            <details className="group border border-outline-variant rounded-md bg-white p-6 [&_summary::-webkit-details-marker]:hidden cursor-pointer" {...({ name: "faq-accordion" } as any)}>
+              <summary className="flex justify-between items-center text-title-md text-primary font-bold outline-none select-none">
+                <span>What is RUBS utility billing and how is it automated?</span>
+                <span className="material-symbols-outlined transition-transform duration-base group-open:rotate-180 text-on-surface-variant group-hover:text-primary">
+                  expand_more
+                </span>
+              </summary>
+              <div className="mt-4 text-body-md text-on-surface-variant border-t border-outline-variant/60 pt-4 leading-relaxed cursor-default animate-[slideDown_150ms_ease-out]" onClick={(e) => e.stopPropagation()}>
+                <p>
+                  RUBS (Ratio Utility Billing System) is a method of allocating utility costs in multi-family properties where individual units aren't separately metered. Landlords upload a master bill (water, gas, trash) and RentFlow automatically distributes the cost based on factors like unit square footage or number of occupants. The system adds these fees as a line item on the tenant's next ledger cycle.
+                </p>
+              </div>
+            </details>
+
+            {/* FAQ Item 5 */}
+            <details className="group border border-outline-variant rounded-md bg-white p-6 [&_summary::-webkit-details-marker]:hidden cursor-pointer" {...({ name: "faq-accordion" } as any)}>
+              <summary className="flex justify-between items-center text-title-md text-primary font-bold outline-none select-none">
+                <span>How long do rent bank transfers take to clear?</span>
+                <span className="material-symbols-outlined transition-transform duration-base group-open:rotate-180 text-on-surface-variant group-hover:text-primary">
+                  expand_more
+                </span>
+              </summary>
+              <div className="mt-4 text-body-md text-on-surface-variant border-t border-outline-variant/60 pt-4 leading-relaxed cursor-default animate-[slideDown_150ms_ease-out]" onClick={(e) => e.stopPropagation()}>
+                <p>
+                  Standard ACH transfers clear within 2-3 business days. We also offer Same-Day ACH processing and real-time debit card processing for fast-tracked rent deposits. Disbursements to owners are initiated immediately once the underlying tenant funds have cleared.
+                </p>
+              </div>
+            </details>
           </div>
         </div>
       </section>

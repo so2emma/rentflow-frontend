@@ -8,6 +8,26 @@ export interface TenantDetails {
   bvn: string;
 }
 
+export interface LandlordResponse {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  bankCode?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
+}
+
+export interface LandlordProfileRequest {
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  bankCode?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
+}
+
 export interface SignUpRequest {
   email: string;
   password?: string;
@@ -28,6 +48,7 @@ export interface SignUpResponse {
 export interface LoginRequest {
   email: string;
   password?: string;
+  role?: string;
 }
 
 export interface LoginResponse {
@@ -38,14 +59,28 @@ export interface LoginResponse {
 
 export interface PropertyRequest {
   name: string;
-  address: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  propertyType?: string;
+  totalUnits?: number;
+  propertyManagerName?: string;
+  emergencyContactNumber?: string;
   propertyCode: string;
 }
 
 export interface PropertyResponse {
   id: string; // UUID
   name: string;
-  address: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  propertyType?: string;
+  totalUnits?: number;
+  propertyManagerName?: string;
+  emergencyContactNumber?: string;
   propertyCode: string;
 }
 
@@ -55,6 +90,12 @@ export interface UnitRequest {
   unitNumber: string;
   baseRent: number;
   status?: UnitStatus;
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFootage?: number;
+  floorNumber?: string;
+  isFurnished?: boolean;
+  amenities?: string;
 }
 
 export interface UnitResponse {
@@ -64,34 +105,44 @@ export interface UnitResponse {
   unitNumber: string;
   baseRent: number;
   status: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFootage?: number;
+  floorNumber?: string;
+  isFurnished?: boolean;
+  amenities?: string;
 }
 
 export interface LeaseRequest {
-  tenantId: string; // UUID
+  tenantEmail: string;
   unitId: string; // UUID
   startDate: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
   gracePeriodDays?: number;
   lateFeePercentage?: number;
   nombaVactRef?: string;
+  initialLedgerEntries?: LedgerEntryRequest[];
 }
+
+export type LeaseStatus = 'PENDING_APPROVAL' | 'PENDING_VIRTUAL_ACCOUNT' | 'ACTIVE' | 'EXPIRED' | 'REJECTED' | 'CONTESTED';
 
 export interface LeaseResponse {
   id: string; // UUID
   tenantId: string; // UUID
-  tenantName?: string;
+  tenantName: string;
   unitId: string; // UUID
-  unitNumber?: string;
-  propertyName?: string;
+  unitNumber: string;
+  propertyName: string;
   startDate: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
   gracePeriodDays?: number;
-  status: string;
-  nombaVactRef?: string;
+  status: LeaseStatus;
+  nombaVactRef: string;
   nombaVactNumber?: string;
   nombaVactBank?: string;
-  baseRent?: number;
-  depositWalletBalance?: number;
+  baseRent: number;
+  depositWalletBalance: number;
+  contestedReason?: string;
 }
 
 export interface LedgerEntryResponse {
@@ -101,12 +152,58 @@ export interface LedgerEntryResponse {
   amountDue: number;
   amountPaid: number;
   status: string;
+  paymentDate?: string;
+  paymentMethod?: string;
+  transactionReference?: string;
+  description?: string;
+  invoiceFileUrl?: string;
+  discountAmount?: number;
+  taxAmount?: number;
+  isReversed?: boolean;
+  reversedAt?: string;
+  periodStartDate?: string;
+  periodEndDate?: string;
+}
+
+export interface LedgerEntryRequest {
+  entryType: string;
+  amountDue: number;
+  dueDate: string; // YYYY-MM-DD
+  periodStartDate?: string;
+  periodEndDate?: string;
+  description?: string;
 }
 
 export interface TenantResponse {
   id: string; // UUID
   name: string;
   email: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  bvn?: string;
+  employerName?: string;
+  jobTitle?: string;
+  monthlyIncome?: number;
+  incomeVerified?: boolean;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  dateOfBirth?: string;
+}
+
+export interface UpdateTenantProfileRequest {
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  bvn?: string;
+  employerName?: string;
+  jobTitle?: string;
+  monthlyIncome?: number;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  dateOfBirth?: string;
 }
 
 export interface ApiError {
@@ -114,3 +211,44 @@ export interface ApiError {
   code?: string;
   message: string;
 }
+
+export interface PropertyRevenueDTO {
+  propertyId: string;
+  propertyName: string;
+  collected: number;
+  outstanding: number;
+}
+
+export interface RevenueDashboardDTO {
+  totalCollected: number;
+  totalOutstanding: number;
+  propertyRevenues: PropertyRevenueDTO[];
+}
+
+export interface InboundTransactionDTO {
+  id: string;
+  nombaTransactionId: string;
+  amount: number;
+  senderName: string;
+  senderBankName: string;
+  senderAccountNumber: string;
+  transactionTime: string;
+}
+
+export type PayoutStatus = 'SUCCESS' | 'PENDING' | 'FAILED';
+
+export interface SplitPayoutResponse {
+  id: string;
+  inboundTransactionId: string;
+  amount: number;
+  splitPercentage: number;
+  recipientType: 'LANDLORD' | 'MAINTENANCE_RESERVE' | 'PLATFORM_COMMISSION';
+  recipientName: string;
+  destinationBankName: string;
+  destinationAccountNumber: string;
+  status: PayoutStatus;
+  createdAt: string;
+  updatedAt?: string;
+  errorMessage?: string;
+}
+

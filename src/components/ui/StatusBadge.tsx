@@ -44,7 +44,8 @@ function resolveVariant(status: StatusVariant): 'success' | 'warning' | 'error' 
     s === 'LEASED' ||
     s === 'PAID' ||
     s === 'OCCUPIED' ||
-    s === 'VERIFIED'
+    s === 'VERIFIED' ||
+    s === 'SUCCESS'
   ) {
     return 'success';
   }
@@ -64,12 +65,12 @@ function resolveVariant(status: StatusVariant): 'success' | 'warning' | 'error' 
 
 const variantClasses: Record<'success' | 'warning' | 'error' | 'draft', { container: string, dot: string }> = {
   success: {
-    container: 'bg-secondary-fixed/20 text-on-secondary-fixed-variant',
-    dot: 'bg-secondary-fixed-dim',
+    container: 'bg-secondary-container text-on-secondary-container',
+    dot: 'bg-secondary',
   },
   warning: {
-    container: 'bg-tertiary-fixed/20 text-on-tertiary-fixed-variant',
-    dot: 'bg-tertiary-fixed-dim animate-pulse',
+    container: 'bg-warning-container text-on-warning-container',
+    dot: 'bg-warning animate-pulse',
   },
   error: {
     container: 'bg-error-container text-on-error-container',

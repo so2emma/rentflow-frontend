@@ -1,13 +1,27 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface TopAppBarProps {
   onMenuClick: () => void;
   userEmail?: string;
+  onProfileClick?: () => void;
 }
 
-export function TopAppBar({ onMenuClick, userEmail }: TopAppBarProps) {
+export function TopAppBar({ onMenuClick, userEmail, onProfileClick }: TopAppBarProps) {
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <header className="bg-surface dark:bg-surface-dim text-on-surface fixed top-0 right-0 h-16 w-full lg:w-[calc(100%-260px)] z-40 border-b border-outline-variant flex justify-between items-center px-margin-mobile lg:px-margin-desktop font-body-md text-body-md">
       <div className="flex items-center gap-4">
@@ -32,14 +46,37 @@ export function TopAppBar({ onMenuClick, userEmail }: TopAppBarProps) {
       </div>
 
       {/* Trailing Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
         <button className="text-on-surface-variant hover:bg-surface-container-high rounded-full p-2 transition-colors relative ripple outline-none focus-visible:ring-2 focus-visible:ring-focus-ring" aria-label="Notifications">
           <span className="material-symbols-outlined">notifications</span>
           <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border border-surface"></span>
         </button>
-        <button className="text-on-surface-variant hover:bg-surface-container-high rounded-full p-2 transition-colors ripple outline-none focus-visible:ring-2 focus-visible:ring-focus-ring" aria-label="User Profile" title={userEmail}>
-          <span className="material-symbols-outlined">account_circle</span>
-        </button>
+        
+        <div className="relative" ref={dropdownRef}>
+          <button 
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            className="text-on-surface-variant hover:bg-surface-container-high rounded-full p-2 transition-colors ripple outline-none focus-visible:ring-2 focus-visible:ring-focus-ring" 
+            aria-label="User Profile" 
+            title={userEmail}
+          >
+            <span className="material-symbols-outlined">account_circle</span>
+          </button>
+          
+          {isProfileOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-surface-container-lowest rounded-md shadow-lg py-1 z-50 border border-outline-variant">
+              <button
+                onClick={() => {
+                  setIsProfileOpen(false);
+                  if (onProfileClick) onProfileClick();
+                }}
+                className="w-full text-left px-4 py-2 text-body-md text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[18px]">person</span>
+                View Profile
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
