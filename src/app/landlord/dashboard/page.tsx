@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { getLandlordProfile } from '@/lib/api/landlords';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardShell } from '@/components/layout/DashboardShell';
@@ -11,17 +13,22 @@ import { Button } from '@/components/ui/Button';
 import { getProperties, createProperty, getUnits, createUnit } from '@/lib/api/properties';
 import { getTenants } from '@/lib/api/tenants';
 import { getLeases, createLease } from '@/lib/api/leases';
+import { getRevenueDashboard } from '@/lib/api/dashboard';
+import { getPayouts, downloadLandlordStatement } from '@/lib/api/payouts';
 import { clearSession } from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
-import { PropertyResponse, UnitResponse, LeaseResponse, TenantResponse } from '@/types/api';
+import { PropertyResponse, UnitResponse, LeaseResponse, TenantResponse, RevenueDashboardDTO, SplitPayoutResponse } from '@/types/api';
 import type { ApiErrorResponse } from '@/lib/api/client';
 
-type Tab = 'properties' | 'units' | 'leases';
+type Tab = 'overview' | 'properties' | 'units' | 'leases' | 'payouts';
 
 const NAV_ITEMS = [
+  { id: 'overview', label: 'Overview', icon: 'monitoring' },
   { id: 'properties', label: 'Properties', icon: 'domain' },
   { id: 'units', label: 'Units', icon: 'grid_view' },
   { id: 'leases', label: 'Leases', icon: 'description' },
+  { id: 'payouts', label: 'Payouts', icon: 'account_balance_wallet' },
+  { id: 'profile', label: 'Profile', icon: 'person' },
 ];
 
 /* ── Inline form-input class (kept local, avoids globals.css @apply conflicts) ── */
@@ -109,47 +116,249 @@ function FeedbackBanner({
   );
 }
 
+const MOCK_PAYOUTS: SplitPayoutResponse[] = [
+  {
+    id: 'pay-1',
+    inboundTransactionId: '00000000-0000-0000-0000-000000000001',
+    amount: 127500.00,
+    splitPercentage: 85,
+    recipientType: 'LANDLORD',
+    recipientName: 'Dave Landlord',
+    destinationBankName: 'GTBank',
+    destinationAccountNumber: '0123456789',
+    status: 'SUCCESS',
+    createdAt: '2026-07-05T14:32:10Z',
+  },
+  {
+    id: 'pay-2',
+    inboundTransactionId: '00000000-0000-0000-0000-000000000001',
+    amount: 15000.00,
+    splitPercentage: 10,
+    recipientType: 'MAINTENANCE_RESERVE',
+    recipientName: 'RentFlow Reserve Vault',
+    destinationBankName: 'Access Bank',
+    destinationAccountNumber: '0123456789',
+    status: 'SUCCESS',
+    createdAt: '2026-07-05T14:32:10Z',
+  },
+  {
+    id: 'pay-3',
+    inboundTransactionId: '00000000-0000-0000-0000-000000000001',
+    amount: 7500.00,
+    splitPercentage: 5,
+    recipientType: 'PLATFORM_COMMISSION',
+    recipientName: 'RentFlow Fees Account',
+    destinationBankName: 'Access Bank',
+    destinationAccountNumber: '9876543210',
+    status: 'SUCCESS',
+    createdAt: '2026-07-05T14:32:10Z',
+  },
+  {
+    id: 'pay-4',
+    inboundTransactionId: '00000000-0000-0000-0000-000000000002',
+    amount: 85000.00,
+    splitPercentage: 85,
+    recipientType: 'LANDLORD',
+    recipientName: 'Dave Landlord',
+    destinationBankName: 'GTBank',
+    destinationAccountNumber: '0123456789',
+    status: 'PENDING',
+    createdAt: '2026-07-05T10:15:00Z',
+  },
+  {
+    id: 'pay-5',
+    inboundTransactionId: '00000000-0000-0000-0000-000000000003',
+    amount: 212500.00,
+    splitPercentage: 85,
+    recipientType: 'LANDLORD',
+    recipientName: 'Dave Landlord',
+    destinationBankName: 'GTBank',
+    destinationAccountNumber: '9999999999',
+    status: 'FAILED',
+    createdAt: '2026-07-04T18:22:45Z',
+    errorMessage: 'API Rejected: Invalid Account Details',
+  }
+];
+
+function formatDate(isoString: string) {
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return isoString;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Page component                                                             */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-export default function LandlordDashboardPage() {
+function LandlordDashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const user = useAuthStore(s => s.user);
 
-  const [activeTab, setActiveTab] = useState<Tab>('properties');
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
+
+  const tabParam = searchParams.get('tab');
+
+  useEffect(() => {
+    if (tabParam && ['overview', 'properties', 'units', 'leases', 'payouts'].includes(tabParam)) {
+      setActiveTab(tabParam as Tab);
+    }
+  }, [tabParam]);
+
+  // Query Landlord Profile on mount to check bank details config
+  const { data: landlordProfile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ['landlordProfile'],
+    queryFn: getLandlordProfile,
+  });
+
+  const showWarningBanner = !isProfileLoading && landlordProfile && (
+    !landlordProfile.bankCode || !landlordProfile.bankAccountNumber || !landlordProfile.bankAccountName
+  );
+
+  // Properties filter/pagination states
+  const [propertiesSearch, setPropertiesSearch] = useState<string>('');
+  const [propertiesPage, setPropertiesPage] = useState<number>(1);
+
+  // Units filter/pagination states
+  const [unitsSearch, setUnitsSearch] = useState<string>('');
+  const [unitsStatus, setUnitsStatus] = useState<string>('All');
+  const [unitsPage, setUnitsPage] = useState<number>(1);
+
+  // Leases filter/pagination states
+  const [leasesSearch, setLeasesSearch] = useState<string>('');
+  const [leasesStatus, setLeasesStatus] = useState<string>('All');
+  const [leasesPage, setLeasesPage] = useState<number>(1);
+
+
+  const [payoutsStartDate, setPayoutsStartDate] = useState<string>('');
+  const [payoutsEndDate, setPayoutsEndDate] = useState<string>('');
+  const [isDownloadingPayouts, setIsDownloadingPayouts] = useState<boolean>(false);
+  const [downloadPayoutsError, setDownloadPayoutsError] = useState<string | null>(null);
+
+  const handleDownloadLandlordStatement = async () => {
+    if (!payoutsStartDate || !payoutsEndDate) return;
+    try {
+      setIsDownloadingPayouts(true);
+      setDownloadPayoutsError(null);
+      const blob = await downloadLandlordStatement(payoutsStartDate, payoutsEndDate);
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `landlord-statement-${payoutsStartDate}-to-${payoutsEndDate}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Failed to download landlord statement:', err);
+      setDownloadPayoutsError(err?.message || 'Failed to download statement. Please try again.');
+    } finally {
+      setIsDownloadingPayouts(false);
+    }
+  };
+
 
   // React Query Data
   const { data: propertiesData } = useQuery({ queryKey: ['properties'], queryFn: getProperties });
   const { data: unitsData } = useQuery({ queryKey: ['units'], queryFn: getUnits });
   const { data: leasesData } = useQuery({ queryKey: ['leases'], queryFn: getLeases });
   const { data: tenantsData } = useQuery({ queryKey: ['tenants'], queryFn: getTenants });
+  const { data: revenueData } = useQuery({ queryKey: ['revenueDashboard'], queryFn: getRevenueDashboard });
+  const { data: payoutsData, isError: payoutsError } = useQuery({
+    queryKey: ['payouts'],
+    queryFn: getPayouts,
+    retry: false,
+  });
 
   const properties: PropertyResponse[] = propertiesData || [];
   const units: UnitResponse[] = unitsData || [];
   const leases: LeaseResponse[] = leasesData || [];
   const tenants: TenantResponse[] = tenantsData || [];
+  const revenue: RevenueDashboardDTO | null = revenueData || null;
 
-  // Add Property form
-  const [propName, setPropName] = useState('');
-  const [propAddress, setPropAddress] = useState('');
-  const [propCode, setPropCode] = useState('');
-  const [propErrors, setPropErrors] = useState<Partial<Record<'name' | 'address' | 'code', string>>>({});
+  // Filter properties
+  const filteredProperties = properties.filter((p) => {
+    if (!propertiesSearch.trim()) return true;
+    const query = propertiesSearch.toLowerCase();
+    const nameMatch = p.name?.toLowerCase().includes(query);
+    const codeMatch = p.propertyCode?.toLowerCase().includes(query);
+    const address = [p.streetAddress, p.city, p.state].filter(Boolean).join(', ').toLowerCase();
+    const addressMatch = address.includes(query);
+    return nameMatch || codeMatch || addressMatch;
+  });
+  const totalPropertiesPages = Math.max(1, Math.ceil(filteredProperties.length / 10));
+  const paginatedProperties = filteredProperties.slice(
+    (propertiesPage - 1) * 10,
+    propertiesPage * 10
+  );
 
-  // Add Unit form
-  const [unitPropId, setUnitPropId] = useState('');
-  const [unitNumber, setUnitNumber] = useState('');
-  const [unitBaseRent, setUnitBaseRent] = useState('');
-  const [unitErrors, setUnitErrors] = useState<Partial<Record<'property' | 'number' | 'rent', string>>>({});
+  // Filter units
+  const filteredUnits = units.filter((u) => {
+    if (unitsStatus !== 'All' && u.status !== unitsStatus) return false;
+    if (!unitsSearch.trim()) return true;
+    const query = unitsSearch.toLowerCase();
+    const numMatch = u.unitNumber?.toLowerCase().includes(query);
+    const propMatch = u.propertyName?.toLowerCase().includes(query);
+    return numMatch || propMatch;
+  });
+  const totalUnitsPages = Math.max(1, Math.ceil(filteredUnits.length / 10));
+  const paginatedUnits = filteredUnits.slice(
+    (unitsPage - 1) * 10,
+    unitsPage * 10
+  );
 
-  // Create Lease form
-  const [leaseTenantId, setLeaseTenantId] = useState('');
-  const [leaseUnitId, setLeaseUnitId] = useState('');
-  const [leaseStartDate, setLeaseStartDate] = useState('');
-  const [leaseEndDate, setLeaseEndDate] = useState('');
-  const [leaseGracePeriod, setLeaseGracePeriod] = useState('5');
-  const [leaseErrors, setLeaseErrors] = useState<Partial<Record<'tenant' | 'unit' | 'start' | 'end', string>>>({});
+  // Filter leases
+  const filteredLeases = leases.filter((l) => {
+    if (leasesStatus !== 'All' && l.status !== leasesStatus) return false;
+    if (!leasesSearch.trim()) return true;
+    const query = leasesSearch.toLowerCase();
+    const tenantMatch = l.tenantName?.toLowerCase().includes(query);
+    const numMatch = l.unitNumber?.toLowerCase().includes(query);
+    const propMatch = l.propertyName?.toLowerCase().includes(query);
+    return tenantMatch || numMatch || propMatch;
+  });
+  const totalLeasesPages = Math.max(1, Math.ceil(filteredLeases.length / 10));
+  const paginatedLeases = filteredLeases.slice(
+    (leasesPage - 1) * 10,
+    leasesPage * 10
+  );
+
+  const payouts: SplitPayoutResponse[] = (payoutsData && payoutsData.length > 0)
+    ? payoutsData
+    : (payoutsError || !payoutsData ? MOCK_PAYOUTS : []);
+
+
+  const filteredPayouts = payouts.filter((p) => {
+    if (!p.createdAt) return true;
+    const pDate = new Date(p.createdAt);
+    if (payoutsStartDate) {
+      const start = new Date(payoutsStartDate);
+      start.setHours(0, 0, 0, 0);
+      if (pDate < start) return false;
+    }
+    if (payoutsEndDate) {
+      const end = new Date(payoutsEndDate);
+      end.setHours(23, 59, 59, 999);
+      if (pDate > end) return false;
+    }
+    return true;
+  });
+
+
+
 
   // UI feedback
   const [feedback, setFeedback] = useState<{ message: React.ReactNode; type: FeedbackType } | null>(null);
@@ -164,143 +373,7 @@ export default function LandlordDashboardPage() {
     setTimeout(() => setFeedback(null), 12000);
   }
 
-  /* ── Add Property ─────────────────────────────────────────────────────── */
 
-  const createPropertyMutation = useMutation({
-    mutationFn: (data: Parameters<typeof createProperty>[0]) => createProperty(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['properties'] });
-      showFeedback('Property added successfully.', 'success');
-      setPropName(''); setPropAddress(''); setPropCode('');
-    },
-    onError: (error: unknown) => {
-      const err = error as ApiErrorResponse;
-      if (err.errors) {
-        setPropErrors({
-          name: err.errors.name,
-          address: err.errors.address,
-          code: err.errors.propertyCode,
-        });
-      }
-      showFeedback(err.message || 'Failed to create property. Please try again.', 'error');
-    }
-  });
-
-  async function handleAddProperty(e: React.FormEvent) {
-    e.preventDefault();
-    const errs: typeof propErrors = {};
-    if (!propName.trim()) errs.name = 'Property name is required.';
-    if (!propAddress.trim()) errs.address = 'Address is required.';
-    if (!propCode.trim()) errs.code = 'Property code is required.';
-    if (Object.keys(errs).length) { setPropErrors(errs); return; }
-    setPropErrors({});
-
-    createPropertyMutation.mutate({ name: propName, address: propAddress, propertyCode: propCode });
-  }
-
-  /* ── Add Unit ─────────────────────────────────────────────────────────── */
-
-  const createUnitMutation = useMutation({
-    mutationFn: (data: { propertyId: string, unit: { unitNumber: string, baseRent: number } }) => createUnit(data.propertyId, data.unit),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['units'] });
-      showFeedback('Unit added successfully.', 'success');
-      setUnitNumber(''); setUnitBaseRent('');
-    },
-    onError: (error: unknown) => {
-      const err = error as ApiErrorResponse;
-      if (err.errors) {
-        setUnitErrors({
-          number: err.errors.unitNumber,
-          rent: err.errors.baseRent,
-        });
-      }
-      showFeedback(err.message || 'Failed to create unit. Please try again.', 'error');
-    }
-  });
-
-  async function handleAddUnit(e: React.FormEvent) {
-    e.preventDefault();
-    const errs: typeof unitErrors = {};
-    if (!unitPropId) errs.property = 'Please select a property.';
-    if (!unitNumber.trim()) errs.number = 'Unit number is required.';
-    const rent = parseFloat(unitBaseRent);
-    if (isNaN(rent) || rent <= 0) errs.rent = 'Enter a valid base rent amount.';
-    if (Object.keys(errs).length) { setUnitErrors(errs); return; }
-    setUnitErrors({});
-
-    createUnitMutation.mutate({ propertyId: unitPropId, unit: { unitNumber, baseRent: rent } });
-  }
-
-  /* ── Create Lease ─────────────────────────────────────────────────────── */
-
-  const createLeaseMutation = useMutation({
-    mutationFn: (data: Parameters<typeof createLease>[0]) => createLease(data),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['leases'] });
-      queryClient.invalidateQueries({ queryKey: ['units'] });
-      
-      const vactNum = data.nombaVactNumber || '—';
-      const vactBank = data.nombaVactBank || '—';
-      const vactRef = data.nombaVactRef || '—';
-
-      showFeedback(
-        <div className="flex flex-col gap-2">
-          <span className="font-semibold">Lease created. Virtual account provisioned.</span>
-          <div className="grid grid-cols-3 gap-4 text-[13px] border-t border-current/20 pt-3 mt-1">
-            <div>
-              <span className="block opacity-70 font-label-md text-label-md uppercase tracking-wider mb-1">Bank</span>
-              <span className="font-semibold">{vactBank}</span>
-            </div>
-            <div>
-              <span className="block opacity-70 font-label-md text-label-md uppercase tracking-wider mb-1">Account No.</span>
-              <span className="font-code-md font-bold">{vactNum}</span>
-            </div>
-            <div>
-              <span className="block opacity-70 font-label-md text-label-md uppercase tracking-wider mb-1">Ref</span>
-              <span className="font-code-md">{vactRef}</span>
-            </div>
-          </div>
-        </div>,
-        'success'
-      );
-
-      setLeaseTenantId(''); setLeaseUnitId(''); setLeaseStartDate('');
-      setLeaseEndDate(''); setLeaseGracePeriod('5');
-    },
-    onError: (error: unknown) => {
-      const err = error as ApiErrorResponse;
-      if (err.errors) {
-        setLeaseErrors({
-          tenant: err.errors.tenantId,
-          unit: err.errors.unitId,
-          start: err.errors.startDate,
-          end: err.errors.endDate,
-        });
-      }
-      showFeedback(err.message || 'Failed to create lease. Please try again.', 'error');
-    }
-  });
-
-  async function handleCreateLease(e: React.FormEvent) {
-    e.preventDefault();
-    const errs: typeof leaseErrors = {};
-    if (!leaseTenantId) errs.tenant = 'Please select a tenant.';
-    if (!leaseUnitId) errs.unit = 'Please select a unit.';
-    if (!leaseStartDate) errs.start = 'Start date is required.';
-    if (!leaseEndDate) errs.end = 'End date is required.';
-    if (Object.keys(errs).length) { setLeaseErrors(errs); return; }
-    setLeaseErrors({});
-
-    const graceDays = parseInt(leaseGracePeriod) || 5;
-    createLeaseMutation.mutate({
-      tenantId: leaseTenantId,
-      unitId: leaseUnitId,
-      startDate: leaseStartDate,
-      endDate: leaseEndDate,
-      gracePeriodDays: graceDays,
-    });
-  }
 
   /* ── Metrics ──────────────────────────────────────────────────────────── */
 
@@ -318,7 +391,14 @@ export default function LandlordDashboardPage() {
         userEmail={user?.email}
         navItems={NAV_ITEMS}
         activeItem={activeTab}
-        onNavChange={(id) => { setActiveTab(id as Tab); setFeedback(null); }}
+        onNavChange={(id) => {
+          if (id === 'profile') {
+            router.push('/landlord/profile');
+          } else {
+            setActiveTab(id as Tab);
+            setFeedback(null);
+          }
+        }}
         onSignOut={handleLogout}
       >
         {/* Page header */}
@@ -329,8 +409,34 @@ export default function LandlordDashboardPage() {
           </p>
         </div>
 
+        {/* Missing Settlement Details Warning Alert Banner */}
+        {showWarningBanner && (
+          <div role="alert" className="bg-warning-container border border-warning/20 text-on-warning-container p-4 rounded-lg flex items-start gap-3 animate-[fadeIn_150ms_ease-out]">
+            <span className="material-symbols-outlined text-warning">warning</span>
+            <div className="flex-1 font-body-md">
+              <span className="font-bold">Important:</span> You have not configured your payout settlement details. Please go to the{' '}
+              <Link href="/landlord/profile" className="underline font-semibold hover:text-on-warning-container transition-colors">
+                Profile tab
+              </Link>{' '}
+              to add your bank account so payouts can be dispatched.
+            </div>
+          </div>
+        )}
+
         {/* Metric cards */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6" aria-label="Portfolio summary">
+        <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6" aria-label="Portfolio summary">
+          <MetricCard
+            label="Total Collected"
+            value={`₦ ${revenue?.totalCollected?.toLocaleString() ?? '0'}`}
+            sub="Lifetime revenue collected"
+            icon="payments"
+          />
+          <MetricCard
+            label="Total Outstanding"
+            value={`₦ ${revenue?.totalOutstanding?.toLocaleString() ?? '0'}`}
+            sub="Pending payments & arrears"
+            icon="pending_actions"
+          />
           <MetricCard
             label="Properties Portfolio"
             value={properties.length}
@@ -351,7 +457,7 @@ export default function LandlordDashboardPage() {
           <MetricCard
             label="Active Contracts"
             value={activeLeases}
-            sub="Running active tenant agreements"
+            sub="Running active agreements"
             icon="description"
           />
         </section>
@@ -365,212 +471,436 @@ export default function LandlordDashboardPage() {
           />
         )}
 
+        {/* ── TAB: Overview ── */}
+        {activeTab === 'overview' && (
+          <div className="flex flex-col gap-6 items-start mt-6">
+            <div className="flex w-full justify-between items-center bg-surface rounded-lg border border-outline-variant p-6">
+              <div>
+                <h2 className="font-headline-md text-title-lg font-bold text-on-surface">Revenue Breakdown</h2>
+                <p className="text-on-surface-variant text-body-md mt-1">Review collected and outstanding revenue for your properties.</p>
+              </div>
+            </div>
+
+            {/* Revenue table */}
+            <div className="w-full bg-surface rounded-lg border border-outline-variant overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-surface-container-low/50">
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Property Name</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Collected</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Outstanding</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-high">
+                  {!revenue || revenue.propertyRevenues.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
+                        No revenue data available.
+                      </td>
+                    </tr>
+                  ) : (
+                    revenue.propertyRevenues.map((p) => (
+                      <tr key={p.propertyId} className="hover:bg-surface-container-low/20 transition-colors group">
+                        <td className="px-6 py-4 font-semibold text-on-surface font-body-md">{p.propertyName}</td>
+                        <td className="px-6 py-4 font-code-md text-secondary">
+                          ₦ {Number(p.collected).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 font-code-md text-error">
+                          ₦ {Number(p.outstanding).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/landlord/properties/${p.propertyId}/revenue`)}
+                          >
+                            View
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* ── TAB: Properties ── */}
         {activeTab === 'properties' && (
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start mt-6">
-            {/* Add Property form */}
-            <section
-              className="xl:col-span-4 bg-surface rounded-lg border border-outline-variant p-6"
-              aria-labelledby="add-property-title"
-            >
-              <h2 id="add-property-title" className="font-headline-md text-title-lg font-bold text-on-surface border-b border-outline-variant pb-3 mb-5">
+          <div className="flex flex-col gap-6 items-start mt-6">
+            <div className="flex w-full justify-between items-center bg-surface rounded-lg border border-outline-variant p-6">
+              <div>
+                <h2 className="font-headline-md text-title-lg font-bold text-on-surface">Properties</h2>
+                <p className="text-on-surface-variant text-body-md mt-1">Manage your properties and their details.</p>
+              </div>
+              <Button onClick={() => router.push('/landlord/properties/new')} variant="primary" leadingIcon={<span className="material-symbols-outlined text-[18px]">add</span>}>
                 Add Property
-              </h2>
-              <form onSubmit={handleAddProperty} noValidate className="flex flex-col gap-4">
-                <Field label="Property Name" htmlFor="propName" error={propErrors.name}>
-                  <input id="propName" type="text" className={INPUT_CLS}
-                    placeholder="e.g. Oakwood Apartments" value={propName}
-                    onChange={(e) => setPropName(e.target.value)} required disabled={createPropertyMutation.isPending} />
-                </Field>
-                <Field label="Property Address" htmlFor="propAddress" error={propErrors.address}>
-                  <input id="propAddress" type="text" className={INPUT_CLS}
-                    placeholder="e.g. 14 Broad Street, Lagos Island" value={propAddress}
-                    onChange={(e) => setPropAddress(e.target.value)} required disabled={createPropertyMutation.isPending} />
-                </Field>
-                <Field label="Property Code (Unique)" htmlFor="propCode" error={propErrors.code}>
-                  <input id="propCode" type="text" className={INPUT_CLS}
-                    placeholder="e.g. OAK-01" value={propCode}
-                    onChange={(e) => setPropCode(e.target.value.toUpperCase())} required disabled={createPropertyMutation.isPending} />
-                </Field>
-                <button type="submit" disabled={createPropertyMutation.isPending} className="w-full bg-primary text-on-primary hover:bg-primary/90 px-6 py-2.5 rounded-lg font-label-md text-label-md transition-all active:scale-[0.98] mt-2 flex justify-center">
-                  {createPropertyMutation.isPending ? 'Saving…' : 'Save Property'}
+              </Button>
+            </div>
+
+            {/* Search Input */}
+            <div className="w-full flex justify-between items-center gap-4 bg-surface p-4 rounded-lg border border-outline-variant">
+              <div className="relative flex-1 max-w-md">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-lg">search</span>
+                <input
+                  type="text"
+                  placeholder="Search by name, code, or address..."
+                  value={propertiesSearch}
+                  onChange={(e) => {
+                    setPropertiesSearch(e.target.value);
+                    setPropertiesPage(1);
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none transition-colors duration-[150ms] focus:border-primary focus:ring-1 focus:ring-primary text-sm min-h-[40px]"
+                />
+              </div>
+              {propertiesSearch && (
+                <button
+                  onClick={() => {
+                    setPropertiesSearch('');
+                    setPropertiesPage(1);
+                  }}
+                  className="px-3 py-2 border border-outline-variant hover:bg-surface-variant/20 text-on-surface-variant font-label-md font-semibold text-sm rounded-lg transition-colors min-h-[40px]"
+                >
+                  Clear filter
                 </button>
-              </form>
-            </section>
+              )}
+            </div>
 
             {/* Properties table */}
-            <div className="xl:col-span-8 bg-surface rounded-lg border border-outline-variant overflow-hidden">
+            <div className="w-full bg-surface rounded-lg border border-outline-variant overflow-hidden">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-surface-container-low/50">
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Property Name</th>
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Code</th>
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Address</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Units</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-container-high">
-                  {properties.length === 0 ? (
+                  {paginatedProperties.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
-                        No properties yet. Add one using the form.
+                      <td colSpan={5} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
+                        {propertiesSearch ? 'No properties matching search criteria.' : 'No properties yet. Add one to get started.'}
                       </td>
                     </tr>
                   ) : (
-                    properties.map((p) => (
+                    paginatedProperties.map((p) => (
                       <tr key={p.id} className="hover:bg-surface-container-low/20 transition-colors group">
                         <td className="px-6 py-4 font-semibold text-on-surface font-body-md">{p.name}</td>
                         <td className="px-6 py-4 font-code-md text-on-surface">{p.propertyCode}</td>
-                        <td className="px-6 py-4 font-body-md text-on-surface-variant">{p.address}</td>
+                        <td className="px-6 py-4 font-body-md text-on-surface-variant">
+                          {[p.streetAddress, p.city, p.state].filter(Boolean).join(', ') || 'No address provided'}
+                        </td>
+                        <td className="px-6 py-4 font-body-md text-on-surface-variant">{p.totalUnits || 0}</td>
+                        <td className="px-6 py-4 text-right flex justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => router.push(`/landlord/properties/${p.id}`)}
+                          >
+                            View
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => router.push(`/landlord/properties/${p.id}/edit`)}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => router.push(`/landlord/properties/${p.id}/units/new`)}
+                          >
+                            Add Unit
+                          </Button>
+                        </td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {filteredProperties.length > 0 && (
+              <div className="w-full flex items-center justify-between border border-outline-variant rounded-lg p-4 bg-surface-container-lowest text-sm">
+                <div className="text-on-surface-variant">
+                  Showing <span className="font-semibold text-on-surface">{(propertiesPage - 1) * 10 + 1}</span> to{' '}
+                  <span className="font-semibold text-on-surface">
+                    {Math.min(propertiesPage * 10, filteredProperties.length)}
+                  </span>{' '}
+                  of <span className="font-semibold text-on-surface">{filteredProperties.length}</span> properties
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPropertiesPage((p) => Math.max(1, p - 1))}
+                    disabled={propertiesPage === 1}
+                    className="inline-flex items-center justify-center p-2 rounded-lg border border-outline-variant hover:bg-surface-variant/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Previous Page"
+                  >
+                    <span className="material-symbols-outlined">chevron_left</span>
+                  </button>
+                  
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPropertiesPages }, (_, i) => i + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        onClick={() => setPropertiesPage(pageNum)}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-xs border transition-colors ${
+                          propertiesPage === pageNum
+                            ? 'bg-[#1e293b] border-[#1e293b] text-white'
+                            : 'border-outline-variant hover:bg-surface-variant/10 text-on-surface'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setPropertiesPage((p) => Math.min(totalPropertiesPages, p + 1))}
+                    disabled={propertiesPage === totalPropertiesPages}
+                    className="inline-flex items-center justify-center p-2 rounded-lg border border-outline-variant hover:bg-surface-variant/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Next Page"
+                  >
+                    <span className="material-symbols-outlined">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* ── TAB: Units ── */}
         {activeTab === 'units' && (
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start mt-6">
-            {/* Add Unit form */}
-            <section
-              className="xl:col-span-4 bg-surface rounded-lg border border-outline-variant p-6"
-              aria-labelledby="add-unit-title"
-            >
-              <h2 id="add-unit-title" className="font-headline-md text-title-lg font-bold text-on-surface border-b border-outline-variant pb-3 mb-5">
-                Add Unit
-              </h2>
-              <form onSubmit={handleAddUnit} noValidate className="flex flex-col gap-4">
-                <Field label="Select Property" htmlFor="unitProp" error={unitErrors.property}>
-                  <select id="unitProp" className={INPUT_CLS + ' cursor-pointer'}
-                    value={unitPropId} onChange={(e) => setUnitPropId(e.target.value)}
-                    required disabled={createUnitMutation.isPending}>
-                    <option value="">— Select Property —</option>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.propertyCode})</option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Unit Number" htmlFor="unitNumber" error={unitErrors.number}>
-                  <input id="unitNumber" type="text" className={INPUT_CLS}
-                    placeholder="e.g. Suite 3B" value={unitNumber}
-                    onChange={(e) => setUnitNumber(e.target.value)} required disabled={createUnitMutation.isPending} />
-                </Field>
-                <Field label="Base Rent (₦ per annum)" htmlFor="unitBaseRent" error={unitErrors.rent}>
-                  <input id="unitBaseRent" type="number" min="1" className={INPUT_CLS}
-                    placeholder="e.g. 1500000" value={unitBaseRent}
-                    onChange={(e) => setUnitBaseRent(e.target.value)} required disabled={createUnitMutation.isPending} />
-                </Field>
-                <button type="submit" disabled={createUnitMutation.isPending} className="w-full bg-primary text-on-primary hover:bg-primary/90 px-6 py-2.5 rounded-lg font-label-md text-label-md transition-all active:scale-[0.98] mt-2 flex justify-center">
-                  {createUnitMutation.isPending ? 'Saving…' : 'Save Unit'}
-                </button>
-              </form>
-            </section>
+          <div className="flex flex-col gap-6 items-start mt-6">
+            <div className="flex w-full justify-between items-center bg-surface rounded-lg border border-outline-variant p-6">
+              <div>
+                <h2 className="font-headline-md text-title-lg font-bold text-on-surface">Units</h2>
+                <p className="text-on-surface-variant text-body-md mt-1">Manage units across your properties.</p>
+              </div>
+              <Button onClick={() => router.push('/landlord/properties/new')} variant="ghost" leadingIcon={<span className="material-symbols-outlined text-[18px]">business</span>}>
+                Go to Properties to Add Unit
+              </Button>
+            </div>
+
+            {/* Filters Bar */}
+            <div className="w-full flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-surface p-4 rounded-lg border border-outline-variant">
+              <div className="relative flex-1 max-w-md">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-lg">search</span>
+                <input
+                  type="text"
+                  placeholder="Search by unit number or property name..."
+                  value={unitsSearch}
+                  onChange={(e) => {
+                    setUnitsSearch(e.target.value);
+                    setUnitsPage(1);
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none transition-colors duration-[150ms] focus:border-primary focus:ring-1 focus:ring-primary text-sm min-h-[40px]"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <label htmlFor="units-status-filter" className="text-xs font-semibold text-on-surface-variant whitespace-nowrap">Status</label>
+                <select
+                  id="units-status-filter"
+                  value={unitsStatus}
+                  onChange={(e) => {
+                    setUnitsStatus(e.target.value);
+                    setUnitsPage(1);
+                  }}
+                  className="px-3 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none transition-colors duration-[150ms] focus:border-primary focus:ring-1 focus:ring-primary text-sm min-h-[40px]"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="VACANT">Vacant</option>
+                  <option value="OCCUPIED">Occupied</option>
+                  <option value="MAINTENANCE">Maintenance</option>
+                </select>
+                {(unitsSearch || unitsStatus !== 'All') && (
+                  <button
+                    onClick={() => {
+                      setUnitsSearch('');
+                      setUnitsStatus('All');
+                      setUnitsPage(1);
+                    }}
+                    className="px-3 py-2 border border-outline-variant hover:bg-surface-variant/20 text-on-surface-variant font-label-md font-semibold text-sm rounded-lg transition-colors min-h-[40px]"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* Units table */}
-            <div className="xl:col-span-8 bg-surface rounded-lg border border-outline-variant overflow-hidden">
+            <div className="w-full bg-surface rounded-lg border border-outline-variant overflow-hidden">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-surface-container-low/50">
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Unit</th>
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Property</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Details</th>
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Base Rent</th>
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Status</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-container-high">
-                  {units.length === 0 ? (
+                  {paginatedUnits.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
-                        No units yet. Add one using the form.
+                      <td colSpan={6} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
+                        {unitsSearch || unitsStatus !== 'All' ? 'No units matching search criteria.' : 'No units yet.'}
                       </td>
                     </tr>
                   ) : (
-                    units.map((u) => (
+                    paginatedUnits.map((u) => (
                       <tr key={u.id} className="hover:bg-surface-container-low/20 transition-colors group">
                         <td className="px-6 py-4 font-semibold text-on-surface font-body-md">{u.unitNumber}</td>
                         <td className="px-6 py-4 text-on-surface font-body-md">{u.propertyName}</td>
+                        <td className="px-6 py-4 text-on-surface-variant font-body-md text-sm">
+                          {u.bedrooms} Bed, {u.bathrooms} Bath • {u.squareFootage} sqft
+                        </td>
                         <td className="px-6 py-4 font-code-md text-on-surface">
                           ₦ {Number(u.baseRent).toLocaleString()}
                         </td>
                         <td className="px-6 py-4">
                           <StatusBadge status={u.status} />
                         </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            disabled={u.status !== 'VACANT'}
+                            onClick={() => router.push(`/landlord/units/${u.id}/edit`)}
+                          >
+                            Edit
+                          </Button>
+                        </td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {filteredUnits.length > 0 && (
+              <div className="w-full flex items-center justify-between border border-outline-variant rounded-lg p-4 bg-surface-container-lowest text-sm">
+                <div className="text-on-surface-variant">
+                  Showing <span className="font-semibold text-on-surface">{(unitsPage - 1) * 10 + 1}</span> to{' '}
+                  <span className="font-semibold text-on-surface">
+                    {Math.min(unitsPage * 10, filteredUnits.length)}
+                  </span>{' '}
+                  of <span className="font-semibold text-on-surface">{filteredUnits.length}</span> units
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setUnitsPage((p) => Math.max(1, p - 1))}
+                    disabled={unitsPage === 1}
+                    className="inline-flex items-center justify-center p-2 rounded-lg border border-outline-variant hover:bg-surface-variant/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Previous Page"
+                  >
+                    <span className="material-symbols-outlined">chevron_left</span>
+                  </button>
+                  
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalUnitsPages }, (_, i) => i + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        onClick={() => setUnitsPage(pageNum)}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-xs border transition-colors ${
+                          unitsPage === pageNum
+                            ? 'bg-[#1e293b] border-[#1e293b] text-white'
+                            : 'border-outline-variant hover:bg-surface-variant/10 text-on-surface'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setUnitsPage((p) => Math.min(totalUnitsPages, p + 1))}
+                    disabled={unitsPage === totalUnitsPages}
+                    className="inline-flex items-center justify-center p-2 rounded-lg border border-outline-variant hover:bg-surface-variant/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Next Page"
+                  >
+                    <span className="material-symbols-outlined">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* ── TAB: Leases ── */}
         {activeTab === 'leases' && (
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start mt-6">
-            {/* Create Lease form */}
-            <section
-              className="xl:col-span-4 bg-surface rounded-lg border border-outline-variant p-6"
-              aria-labelledby="create-lease-title"
-            >
-              <h2 id="create-lease-title" className="font-headline-md text-title-lg font-bold text-on-surface border-b border-outline-variant pb-3 mb-5">
+          <div className="flex flex-col gap-6 items-start mt-6">
+            <div className="flex w-full justify-between items-center bg-surface rounded-lg border border-outline-variant p-6">
+              <div>
+                <h2 className="font-headline-md text-title-lg font-bold text-on-surface">Leases</h2>
+                <p className="text-on-surface-variant text-body-md mt-1">Manage tenant leases and virtual accounts.</p>
+              </div>
+              <Button onClick={() => router.push('/landlord/leases/new')} variant="primary" leadingIcon={<span className="material-symbols-outlined text-[18px]">add</span>}>
                 Create Lease
-              </h2>
-              <form onSubmit={handleCreateLease} noValidate className="flex flex-col gap-4">
-                <Field label="Select Tenant" htmlFor="leaseTenant" error={leaseErrors.tenant}>
-                  <select id="leaseTenant" className={INPUT_CLS + ' cursor-pointer'}
-                    value={leaseTenantId} onChange={(e) => setLeaseTenantId(e.target.value)}
-                    required disabled={createLeaseMutation.isPending}>
-                    <option value="">— Select Tenant —</option>
-                    {tenants.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name} ({t.email})</option>
-                    ))}
-                  </select>
-                </Field>
+              </Button>
+            </div>
 
-                <Field label="Select Vacant Unit" htmlFor="leaseUnit" error={leaseErrors.unit}>
-                  <select id="leaseUnit" className={INPUT_CLS + ' cursor-pointer'}
-                    value={leaseUnitId} onChange={(e) => setLeaseUnitId(e.target.value)}
-                    required disabled={createLeaseMutation.isPending}>
-                    <option value="">— Select Unit —</option>
-                    {units
-                      .filter((u) => u.status === 'VACANT')
-                      .map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.propertyName} — Unit {u.unitNumber} (₦{Number(u.baseRent).toLocaleString()})
-                        </option>
-                      ))}
-                  </select>
-                </Field>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Start Date" htmlFor="startDate" error={leaseErrors.start}>
-                    <input id="startDate" type="date" className={INPUT_CLS}
-                      value={leaseStartDate} onChange={(e) => setLeaseStartDate(e.target.value)}
-                      required disabled={createLeaseMutation.isPending} />
-                  </Field>
-                  <Field label="End Date" htmlFor="endDate" error={leaseErrors.end}>
-                    <input id="endDate" type="date" className={INPUT_CLS}
-                      value={leaseEndDate} onChange={(e) => setLeaseEndDate(e.target.value)}
-                      required disabled={createLeaseMutation.isPending} />
-                  </Field>
-                </div>
-
-                <Field label="Grace Period (Days)" htmlFor="gracePeriod">
-                  <input id="gracePeriod" type="number" min="0" className={INPUT_CLS}
-                    value={leaseGracePeriod} onChange={(e) => setLeaseGracePeriod(e.target.value)}
-                    disabled={createLeaseMutation.isPending} />
-                </Field>
-
-                <button type="submit" disabled={createLeaseMutation.isPending} className="w-full bg-primary text-on-primary hover:bg-primary/90 px-6 py-2.5 rounded-lg font-label-md text-label-md transition-all active:scale-[0.98] mt-2 flex justify-center">
-                  {createLeaseMutation.isPending ? 'Creating Lease…' : 'Create Lease'}
-                </button>
-              </form>
-            </section>
+            {/* Filters Bar */}
+            <div className="w-full flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-surface p-4 rounded-lg border border-outline-variant">
+              <div className="relative flex-1 max-w-md">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-lg">search</span>
+                <input
+                  type="text"
+                  placeholder="Search by tenant name, unit number, or property..."
+                  value={leasesSearch}
+                  onChange={(e) => {
+                    setLeasesSearch(e.target.value);
+                    setLeasesPage(1);
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none transition-colors duration-[150ms] focus:border-primary focus:ring-1 focus:ring-primary text-sm min-h-[40px]"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <label htmlFor="leases-status-filter" className="text-xs font-semibold text-on-surface-variant whitespace-nowrap">Status</label>
+                <select
+                  id="leases-status-filter"
+                  value={leasesStatus}
+                  onChange={(e) => {
+                    setLeasesStatus(e.target.value);
+                    setLeasesPage(1);
+                  }}
+                  className="px-3 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none transition-colors duration-[150ms] focus:border-primary focus:ring-1 focus:ring-primary text-sm min-h-[40px]"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="PENDING_APPROVAL">Pending Approval</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="EXPIRED">Expired</option>
+                  <option value="REJECTED">Rejected</option>
+                  <option value="CONTESTED">Contested</option>
+                </select>
+                {(leasesSearch || leasesStatus !== 'All') && (
+                  <button
+                    onClick={() => {
+                      setLeasesSearch('');
+                      setLeasesStatus('All');
+                      setLeasesPage(1);
+                    }}
+                    className="px-3 py-2 border border-outline-variant hover:bg-surface-variant/20 text-on-surface-variant font-label-md font-semibold text-sm rounded-lg transition-colors min-h-[40px]"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* Leases table */}
-            <div className="xl:col-span-8 bg-surface rounded-lg border border-outline-variant overflow-hidden">
+            <div className="w-full bg-surface rounded-lg border border-outline-variant overflow-hidden">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-surface-container-low/50">
@@ -578,17 +908,18 @@ export default function LandlordDashboardPage() {
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Property / Unit</th>
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Term</th>
                     <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high">Status</th>
+                    <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-surface-container-high text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-container-high">
-                  {leases.length === 0 ? (
+                  {paginatedLeases.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
-                        No lease agreements yet.
+                      <td colSpan={5} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
+                        {leasesSearch || leasesStatus !== 'All' ? 'No leases matching search criteria.' : 'No lease agreements yet.'}
                       </td>
                     </tr>
                   ) : (
-                    leases.map((l) => (
+                    paginatedLeases.map((l) => (
                       <tr key={l.id} className="hover:bg-surface-container-low/20 transition-colors group">
                         <td className="px-6 py-4 font-semibold text-on-surface font-body-md">{l.tenantName}</td>
                         <td className="px-6 py-4 font-body-md text-on-surface">
@@ -605,15 +936,223 @@ export default function LandlordDashboardPage() {
                         <td className="px-6 py-4">
                           <StatusBadge status={l.status} />
                         </td>
+                        <td className="px-6 py-4 text-right">
+                          {l.status === 'CONTESTED' ? (
+                            <Button 
+                              variant="primary" 
+                              size="sm" 
+                              onClick={() => router.push(`/landlord/leases/${l.id}/edit`)}
+                            >
+                              Edit & Resubmit
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => router.push(`/landlord/leases/${l.id}`)}
+                            >
+                              View
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {filteredLeases.length > 0 && (
+              <div className="w-full flex items-center justify-between border border-outline-variant rounded-lg p-4 bg-surface-container-lowest text-sm">
+                <div className="text-on-surface-variant">
+                  Showing <span className="font-semibold text-on-surface">{(leasesPage - 1) * 10 + 1}</span> to{' '}
+                  <span className="font-semibold text-on-surface">
+                    {Math.min(leasesPage * 10, filteredLeases.length)}
+                  </span>{' '}
+                  of <span className="font-semibold text-on-surface">{filteredLeases.length}</span> leases
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setLeasesPage((p) => Math.max(1, p - 1))}
+                    disabled={leasesPage === 1}
+                    className="inline-flex items-center justify-center p-2 rounded-lg border border-outline-variant hover:bg-surface-variant/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Previous Page"
+                  >
+                    <span className="material-symbols-outlined">chevron_left</span>
+                  </button>
+                  
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalLeasesPages }, (_, i) => i + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        onClick={() => setLeasesPage(pageNum)}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-xs border transition-colors ${
+                          leasesPage === pageNum
+                            ? 'bg-[#1e293b] border-[#1e293b] text-white'
+                            : 'border-outline-variant hover:bg-surface-variant/10 text-on-surface'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setLeasesPage((p) => Math.min(totalLeasesPages, p + 1))}
+                    disabled={leasesPage === totalLeasesPages}
+                    className="inline-flex items-center justify-center p-2 rounded-lg border border-outline-variant hover:bg-surface-variant/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Next Page"
+                  >
+                    <span className="material-symbols-outlined">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
+
+        {/* ── TAB: Payouts ── */}
+        {activeTab === 'payouts' && (
+          <div className="flex flex-col gap-6 items-start mt-6">
+            <div className="flex w-full flex-col md:flex-row justify-between md:items-center gap-4 bg-surface rounded-lg border border-outline-variant p-6">
+              <div className="flex-1">
+                <h2 className="font-headline-md text-title-lg font-bold text-on-surface">Payouts & Settlements</h2>
+                <p className="text-on-surface-variant text-body-md mt-1">
+                  History of split payouts and outbound bank transfers.
+                </p>
+              </div>
+
+              {/* Date Filters and Download Button */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="payouts-start-date" className="text-xs font-semibold text-on-surface-variant">From</label>
+                  <input
+                    type="date"
+                    id="payouts-start-date"
+                    value={payoutsStartDate}
+                    onChange={(e) => setPayoutsStartDate(e.target.value)}
+                    className="px-3 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none transition-colors duration-[150ms] focus:border-primary focus:ring-1 focus:ring-primary text-sm min-h-[40px]"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="payouts-end-date" className="text-xs font-semibold text-on-surface-variant">To</label>
+                  <input
+                    type="date"
+                    id="payouts-end-date"
+                    value={payoutsEndDate}
+                    onChange={(e) => setPayoutsEndDate(e.target.value)}
+                    className="px-3 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none transition-colors duration-[150ms] focus:border-primary focus:ring-1 focus:ring-primary text-sm min-h-[40px]"
+                  />
+                </div>
+                {(payoutsStartDate || payoutsEndDate) && (
+                  <button
+                    onClick={() => { setPayoutsStartDate(''); setPayoutsEndDate(''); setDownloadPayoutsError(null); }}
+                    className="px-3 py-2 border border-outline-variant hover:bg-surface-variant/20 text-on-surface-variant font-label-md font-semibold text-sm rounded-lg transition-colors min-h-[40px]"
+                  >
+                    Clear
+                  </button>
+                )}
+                <div className="flex flex-col">
+                  <button
+                    onClick={handleDownloadLandlordStatement}
+                    disabled={isDownloadingPayouts || !payoutsStartDate || !payoutsEndDate}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1e293b] hover:bg-[#0f172a] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-label-md font-semibold text-sm rounded-lg transition-colors shadow-sm min-h-[40px]"
+                  >
+                    {isDownloadingPayouts ? (
+                      <>
+                        <span className="animate-spin mr-1 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                        Download CSV Statement
+                      </>
+                    )}
+                  </button>
+                  {downloadPayoutsError && (
+                    <span className="text-error text-[11px] mt-1 font-medium">{downloadPayoutsError}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Payouts table */}
+            <div className="w-full bg-surface rounded-lg border border-outline-variant overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead>
+                    <tr className="bg-surface-container-low/50">
+                      <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-[#F1F5F9]">Date</th>
+                      <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-[#F1F5F9]">Parent Tx ID</th>
+                      <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-[#F1F5F9]">Amount</th>
+                      <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-[#F1F5F9]">Split %</th>
+                      <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-[#F1F5F9]">Recipient / Account Details</th>
+                      <th className="px-6 py-4 text-on-surface-variant font-label-md text-label-md border-b border-[#F1F5F9]">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F1F5F9]">
+                    {filteredPayouts.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-10 text-center font-body-md text-on-surface-variant">
+                          {payoutsStartDate || payoutsEndDate ? 'No split payouts found matching the selected date range.' : 'No split payouts history available.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredPayouts.map((p) => (
+                        <tr key={p.id} className="hover:bg-surface-container-low/20 transition-colors group">
+                          <td className="px-6 py-4 font-body-md text-on-surface-variant whitespace-nowrap">
+                            {formatDate(p.createdAt)}
+                          </td>
+                          <td className="px-6 py-4 font-code-md text-on-surface text-sm truncate max-w-[150px]" title={p.inboundTransactionId}>
+                            {p.inboundTransactionId}
+                          </td>
+                          <td className="px-6 py-4 font-code-md text-on-surface font-semibold whitespace-nowrap">
+                            ₦ {Number(p.amount).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 font-code-md text-on-surface-variant">
+                            {p.splitPercentage}%
+                          </td>
+                          <td className="px-6 py-4 font-body-md">
+                            <div className="text-on-surface font-medium">{p.recipientName}</div>
+                            <div className="text-on-surface-variant text-xs mt-0.5">
+                              {p.destinationBankName} • {p.destinationAccountNumber}
+                            </div>
+                            {p.errorMessage && (
+                              <div className="text-error text-xs mt-1 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px]">error</span>
+                                {p.errorMessage}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <StatusBadge status={p.status} label={p.status === 'PENDING' ? 'PROCESSING' : undefined} />
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
       </DashboardShell>
     </ProtectedRoute>
+  );
+}
+
+export default function LandlordDashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full min-h-screen flex items-center justify-center bg-background">
+        <h2 className="text-xl font-semibold text-brand-deep-slate animate-pulse">Loading Landlord Portal…</h2>
+      </div>
+    }>
+      <LandlordDashboardContent />
+    </Suspense>
   );
 }
