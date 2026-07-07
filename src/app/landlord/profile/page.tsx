@@ -7,7 +7,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardShell } from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/Button';
 import { getLandlordProfile, updateLandlordProfile } from '@/lib/api/landlords';
-import { getBanks, lookupBankAccount } from '@/lib/api/banks';
+import { getBanks, lookupBankAccount, type BankInfo } from '@/lib/api/banks';
 import { useAuthStore } from '@/store/authStore';
 import { clearSession } from '@/lib/auth/session';
 import type { ApiErrorResponse } from '@/lib/api/client';
@@ -327,7 +327,7 @@ export default function LandlordProfilePage() {
                     disabled={mutation.isPending || isBanksLoading}
                   >
                     <option value="">— Select Bank —</option>
-                    {banks?.map((bank) => (
+                    {banks?.map((bank: BankInfo) => (
                       <option key={bank.code} value={bank.code}>{bank.name}</option>
                     ))}
                   </select>
