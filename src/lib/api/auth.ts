@@ -23,3 +23,10 @@ export async function login(
   const response = await apiClient.post<LoginResponse>('/api/auth/login', data, config);
   return response.data;
 }
+
+/**
+ * Logout the user, expiring their session cookie.
+ */
+export async function logout(): Promise<void> {
+  await apiClient.post('/api/auth/logout', {});
+}

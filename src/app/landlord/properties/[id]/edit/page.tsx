@@ -8,7 +8,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/Button';
 import { getProperty, updateProperty, getUnits } from '@/lib/api/properties';
 import { useAuthStore } from '@/store/authStore';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import type { ApiErrorResponse } from '@/lib/api/client';
 
 const INPUT_CLS =
@@ -163,7 +163,7 @@ export default function EditPropertyPage() {
           navItems={[{ id: 'dashboard', label: 'Dashboard', icon: 'dashboard' }, { id: 'properties', label: 'Properties', icon: 'domain' }, { id: 'units', label: 'Units', icon: 'grid_view' }, { id: 'leases', label: 'Leases', icon: 'description' }]}
           activeItem="properties"
           onNavChange={(id) => { if (id === 'dashboard') router.push('/landlord/dashboard'); }}
-          onSignOut={() => { clearSession(); router.replace('/login'); }}
+          onSignOut={() => { logoutUser(); }}
         >
           <div className="flex items-center justify-center h-64">
             <p className="text-on-surface-variant font-body-md">Loading property data...</p>
@@ -190,8 +190,7 @@ export default function EditPropertyPage() {
           if (id === 'dashboard') router.push('/landlord/dashboard');
         }}
         onSignOut={() => {
-          clearSession();
-          router.replace('/login');
+          logoutUser();
         }}
       >
         <div className="flex flex-col gap-6 max-w-4xl mx-auto mt-6">

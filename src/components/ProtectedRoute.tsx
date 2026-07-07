@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { clearSession, getDashboardPath } from '@/lib/auth/session';
+import { clearSession, getDashboardPath, setSession } from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
+import { api } from '@/services/api';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,30 +16,45 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const token = useAuthStore(s => s.token);
   const user = useAuthStore(s => s.user);
 
   useEffect(() => {
-    if (!token || !user) {
-      router.replace('/login');
-      return;
-    }
+    const checkAuth = async () => {
+      let currentUser = user;
 
-    if (!user.roles?.includes(allowedRole)) {
-      // Redirect to the user's correct dashboard rather than logging them out
-      const correctPath = getDashboardPath();
-      if (correctPath !== '/login') {
-        router.replace(correctPath);
-      } else {
-        clearSession();
-        router.replace('/login');
+      // If no user in store, try to fetch from /api/auth/me (in case of hard reload with cookies intact)
+      if (!currentUser) {
+        try {
+          const res = await api.get('/api/auth/me');
+          currentUser = { email: res.data.email, roles: res.data.roles };
+          setSession(currentUser);
+        } catch (e) {
+          router.replace('/login');
+          return;
+        }
       }
-    } else {
-      setIsAuthorized(true);
-    }
 
-    setLoading(false);
-  }, [router, allowedRole, token, user]);
+      if (!currentUser) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!currentUser.roles?.includes(allowedRole)) {
+        const correctPath = getDashboardPath();
+        if (correctPath !== '/login') {
+          router.replace(correctPath);
+        } else {
+          clearSession();
+          router.replace('/login');
+        }
+      } else {
+        setIsAuthorized(true);
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, [router, allowedRole, user]);
 
   if (loading) {
     return (

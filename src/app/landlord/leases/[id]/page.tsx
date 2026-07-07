@@ -8,7 +8,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell';
 import { getLeaseById } from '@/lib/api/leases';
 import { getLedgersForLease } from '@/lib/api/ledgers';
 import { Button } from '@/components/ui/Button';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
 import { LedgerEntryResponse } from '@/types/api';
 
@@ -25,8 +25,7 @@ export default function LeaseDetailsPage() {
   const user = useAuthStore(s => s.user);
 
   function handleLogout() {
-    clearSession();
-    router.replace('/login');
+    logoutUser();
   }
 
   const { data: lease, isLoading: isLoadingLease, error: leaseError } = useQuery({

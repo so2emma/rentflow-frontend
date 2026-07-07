@@ -7,7 +7,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
 
 interface LandlordVetInfo {
@@ -71,8 +71,7 @@ export default function AdminDashboardPage() {
   });
 
   function handleLogout() {
-    clearSession();
-    router.replace('/login');
+    logoutUser();
   }
 
   function handleApprove(id: string) {

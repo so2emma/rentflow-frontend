@@ -11,6 +11,9 @@ const isServer = typeof window === 'undefined';
 
 export const apiClient = axios.create({
   baseURL: isServer ? (process.env.BACKEND_API_URL || 'http://localhost:8080') : '',
+  withCredentials: true,
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -18,21 +21,19 @@ export const apiClient = axios.create({
 
 import { useAuthStore } from '@/store/authStore';
 
-// Request Interceptor: Attach JWT Token if present (client-side only)
-apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    if (!isServer) {
-      const token = useAuthStore.getState().token;
-      if (token && config.headers && !config.headers.Authorization) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve();
     }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+  });
+  failedQueue = [];
+};
 
 // Helper to normalize errors into strict ApiErrorResponse shape
 export function normalizeError(error: any): ApiErrorResponse {
@@ -84,15 +85,39 @@ export function normalizeError(error: any): ApiErrorResponse {
 // Response Interceptor: Normalize errors and handle 401s
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    
     // 401 Unauthorized handling on client-side
-    if (error.response && error.response.status === 401) {
+    if (error.response && error.response.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/api/auth/login')) {
       if (!isServer) {
-        useAuthStore.getState().clearSession();
-        
-        // Prevent redirect loops
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login?expired=true';
+        if (isRefreshing) {
+          return new Promise(function(resolve, reject) {
+            failedQueue.push({resolve, reject});
+          }).then(() => {
+            return apiClient(originalRequest);
+          }).catch(err => {
+            return Promise.reject(normalizeError(err));
+          });
+        }
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        try {
+          await axios.post('/api/auth/refresh', {}, { baseURL: apiClient.defaults.baseURL, withCredentials: true });
+          isRefreshing = false;
+          processQueue(null);
+          return apiClient(originalRequest);
+        } catch (err) {
+          isRefreshing = false;
+          processQueue(err);
+          useAuthStore.getState().clearSession();
+          
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login?expired=true';
+          }
+          return Promise.reject(normalizeError(error));
         }
       }
     }

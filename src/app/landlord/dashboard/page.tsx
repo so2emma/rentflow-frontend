@@ -15,7 +15,7 @@ import { getTenants } from '@/lib/api/tenants';
 import { getLeases, createLease } from '@/lib/api/leases';
 import { getRevenueDashboard } from '@/lib/api/dashboard';
 import { getPayouts, downloadLandlordStatement } from '@/lib/api/payouts';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
 import { PropertyResponse, UnitResponse, LeaseResponse, TenantResponse, RevenueDashboardDTO, SplitPayoutResponse } from '@/types/api';
 import type { ApiErrorResponse } from '@/lib/api/client';
@@ -364,8 +364,7 @@ function LandlordDashboardContent() {
   const [feedback, setFeedback] = useState<{ message: React.ReactNode; type: FeedbackType } | null>(null);
 
   function handleLogout() {
-    clearSession();
-    router.replace('/login');
+    logoutUser();
   }
 
   function showFeedback(message: React.ReactNode, type: FeedbackType) {

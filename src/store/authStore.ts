@@ -7,19 +7,17 @@ export interface SessionUser {
 }
 
 interface AuthState {
-  token: string | null;
   user: SessionUser | null;
-  setSession: (token: string, user: SessionUser) => void;
+  setSession: (user: SessionUser) => void;
   clearSession: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      token: null,
       user: null,
-      setSession: (token, user) => set({ token, user }),
-      clearSession: () => set({ token: null, user: null }),
+      setSession: (user) => set({ user }),
+      clearSession: () => set({ user: null }),
     }),
     {
       name: 'rentflow_auth', // key in localStorage

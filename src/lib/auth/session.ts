@@ -2,46 +2,50 @@
  * lib/auth/session.ts
  *
  * Centralized client-side session helper.
- * All reads and writes to the JWT token and user object go through
- * this module — no scattered localStorage calls across pages.
- *
- * Note: This is the client-side implementation. A future migration to
- * Next.js middleware (middleware.ts) + HttpOnly cookies would replace
- * this module with a server-side session handler.
  */
 
 import { useAuthStore, SessionUser } from '@/store/authStore';
-
-export const SESSION_KEYS = {
-  token: 'rentflow_token',
-  user: 'rentflow_user',
-} as const;
+import { logout } from '@/lib/api/auth';
 
 export type { SessionUser };
-
-/** Returns the JWT bearer token, or null if not authenticated. */
-export function getToken(): string | null {
-  return useAuthStore.getState().token;
-}
 
 /** Returns the parsed user object, or null if not set / parse error. */
 export function getUser(): SessionUser | null {
   return useAuthStore.getState().user;
 }
 
-/** Persists the JWT token and user object after a successful login. */
-export function setSession(token: string, user: SessionUser): void {
-  useAuthStore.getState().setSession(token, user);
+/** Persists the user object after a successful login. */
+export function setSession(user: SessionUser): void {
+  useAuthStore.getState().setSession(user);
 }
 
-/** Removes the session (logout). */
+/** Removes the session locally (clears zustand store). */
 export function clearSession(): void {
   useAuthStore.getState().clearSession();
 }
 
-/** Returns true when a token is present. Does NOT validate expiry. */
+/** 
+ * Fully logs out the user. 
+ * Calls the backend to invalidate the session, clears local state,
+ * and forces a hard navigation to /login to clear all React state 
+ * and prevent the back button from rendering cached data.
+ */
+export async function logoutUser(): Promise<void> {
+  try {
+    await logout();
+  } catch (err) {
+    // Ignore backend errors on logout, we still want to log them out locally
+  }
+  clearSession();
+  
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login';
+  }
+}
+
+/** Returns true when a user is present. */
 export function isAuthenticated(): boolean {
-  return getToken() !== null;
+  return getUser() !== null;
 }
 
 /** Returns true when the user has the given role string. */

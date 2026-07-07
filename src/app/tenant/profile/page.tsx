@@ -8,7 +8,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/Button';
 import { getTenantProfile, updateTenantProfile } from '@/lib/api/tenants';
 import { useAuthStore } from '@/store/authStore';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import type { ApiErrorResponse } from '@/lib/api/client';
 
 const INPUT_CLS =
@@ -160,8 +160,7 @@ export default function TenantProfilePage() {
             }
           }}
           onSignOut={() => {
-            clearSession();
-            router.replace('/login');
+            logoutUser();
           }}
         >
           <div className="flex items-center justify-center h-64">
@@ -188,8 +187,7 @@ export default function TenantProfilePage() {
           }
         }}
         onSignOut={() => {
-          clearSession();
-          router.replace('/login');
+          logoutUser();
         }}
       >
         <div className="flex flex-col gap-6 max-w-4xl mx-auto mt-6">

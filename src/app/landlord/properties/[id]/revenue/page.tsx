@@ -8,7 +8,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { getProperty, getPropertyLedgers, getPropertyTransactions } from '@/lib/api/properties';
 import { useAuthStore } from '@/store/authStore';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import { LedgerEntryResponse, InboundTransactionDTO } from '@/types/api';
 
 export default function PropertyRevenuePage() {
@@ -45,7 +45,7 @@ export default function PropertyRevenuePage() {
           navItems={[{ id: 'dashboard', label: 'Dashboard', icon: 'dashboard' }, { id: 'properties', label: 'Properties', icon: 'domain' }, { id: 'units', label: 'Units', icon: 'grid_view' }, { id: 'leases', label: 'Leases', icon: 'description' }]}
           activeItem="dashboard"
           onNavChange={(id) => { if (id === 'dashboard') router.push('/landlord/dashboard'); }}
-          onSignOut={() => { clearSession(); router.replace('/login'); }}
+          onSignOut={() => { logoutUser(); }}
         >
           <div className="flex items-center justify-center h-64">
             <p className="text-on-surface-variant font-body-md">Loading revenue details...</p>
@@ -65,7 +65,7 @@ export default function PropertyRevenuePage() {
           navItems={[{ id: 'dashboard', label: 'Dashboard', icon: 'dashboard' }, { id: 'properties', label: 'Properties', icon: 'domain' }, { id: 'units', label: 'Units', icon: 'grid_view' }, { id: 'leases', label: 'Leases', icon: 'description' }]}
           activeItem="dashboard"
           onNavChange={(id) => { if (id === 'dashboard') router.push('/landlord/dashboard'); }}
-          onSignOut={() => { clearSession(); router.replace('/login'); }}
+          onSignOut={() => { logoutUser(); }}
         >
           <div className="flex items-center justify-center h-64">
             <p className="text-error font-body-md">Property not found.</p>
@@ -98,8 +98,7 @@ export default function PropertyRevenuePage() {
           else if (id === 'leases') router.push('/landlord/dashboard');
         }}
         onSignOut={() => {
-          clearSession();
-          router.replace('/login');
+          logoutUser();
         }}
       >
         <div className="flex flex-col gap-6 max-w-6xl mx-auto mt-6">

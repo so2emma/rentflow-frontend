@@ -1,43 +1,64 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
-// The client-side Axios instance always uses relative paths to route requests
-// through the secure Next.js server-side proxy configuration.
 export const api = axios.create({
   baseURL: '',
+  withCredentials: true,
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request Interceptor: Attach JWT Token if present
-api.interceptors.request.use(
-  (config) => {
-    const token = useAuthStore.getState().token;
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+let isRefreshing = false;
+let failedQueue: any[] = [];
 
-// Response Interceptor: Handle 401 Unauthorized by clearing storage and redirecting
+const processQueue = (error: any) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve();
+    }
+  });
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      if (typeof window !== 'undefined') {
-        useAuthStore.getState().clearSession();
-        
-        // Prevent redirect loops if already on login page
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login?expired=true';
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response && error.response.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/api/auth/login')) {
+      if (isRefreshing) {
+        return new Promise(function(resolve, reject) {
+          failedQueue.push({resolve, reject});
+        }).then(() => {
+          return api(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+        isRefreshing = false;
+        processQueue(null);
+        return api(originalRequest);
+      } catch (err) {
+        isRefreshing = false;
+        processQueue(err);
+        if (typeof window !== 'undefined') {
+          useAuthStore.getState().clearSession();
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login?expired=true';
+          }
         }
+        return Promise.reject(error);
       }
     }
     return Promise.reject(error);

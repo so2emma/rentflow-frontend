@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { getLeaseById, resubmitLease } from '@/lib/api/leases';
 import { getLedgersForLease } from '@/lib/api/ledgers';
 import { useAuthStore } from '@/store/authStore';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import type { ApiErrorResponse } from '@/lib/api/client';
 import { LedgerEntryRequest, LedgerEntryResponse } from '@/types/api';
 
@@ -153,8 +153,7 @@ export default function EditLeasePage({ params }: { params: Promise<{ id: string
           if (id === 'dashboard') router.push('/landlord/dashboard');
         }}
         onSignOut={() => {
-          clearSession();
-          router.replace('/login');
+          logoutUser();
         }}
       >
         <div className="flex flex-col gap-6 max-w-4xl mx-auto mt-6">

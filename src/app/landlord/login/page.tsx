@@ -140,7 +140,7 @@ function LandlordLoginContent() {
     setIsLoading(true);
     try {
       const response = await login({ email: loginEmail, password: loginPassword, role: 'LANDLORD' });
-      setSession(response.token, { email: response.email, roles: response.roles });
+      setSession({ email: response.email, roles: response.roles });
       router.replace(getDashboardPath());
     } catch (err: unknown) {
       const apiErr = err as ApiErrorResponse;

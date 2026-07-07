@@ -7,8 +7,9 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardShell } from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/Button';
 import { getLandlordProfile, updateLandlordProfile } from '@/lib/api/landlords';
+import { getBanks, lookupBankAccount, BankInfo } from '@/lib/api/banks';
 import { useAuthStore } from '@/store/authStore';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import type { ApiErrorResponse } from '@/lib/api/client';
 
 const INPUT_CLS =
@@ -90,6 +91,68 @@ export default function LandlordProfilePage() {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const [banks, setBanks] = useState<BankInfo[]>([]);
+  const [banksLoading, setBanksLoading] = useState(false);
+  const [isResolvingAccountName, setIsResolvingAccountName] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadBanks() {
+      setBanksLoading(true);
+      try {
+        const list = await getBanks();
+        setBanks(list);
+      } catch (err) {
+        console.error('Failed to load banks', err);
+      } finally {
+        setBanksLoading(false);
+      }
+    }
+    loadBanks();
+  }, []);
+
+  useEffect(() => {
+    const { bankCode, bankAccountNumber } = formData;
+    if (!bankCode || !bankAccountNumber || !/^\d{10}$/.test(bankAccountNumber)) {
+      setLookupError(null);
+      return;
+    }
+
+    if (profile &&
+        bankCode === profile.bankCode &&
+        bankAccountNumber === profile.bankAccountNumber &&
+        formData.bankAccountName === profile.bankAccountName) {
+      setLookupError(null);
+      return;
+    }
+
+    setLookupError(null);
+    setIsResolvingAccountName(true);
+
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const res = await lookupBankAccount(bankAccountNumber, bankCode);
+        if (res && res.code === '00' && res.data) {
+          setFormData(prev => ({
+            ...prev,
+            bankAccountName: res.data.accountName
+          }));
+        } else {
+          setLookupError(res ? res.description : 'Failed to resolve account name');
+          setFormData(prev => ({ ...prev, bankAccountName: '' }));
+        }
+      } catch (err: any) {
+        console.error(err);
+        setLookupError(err.message || 'Error resolving account name');
+        setFormData(prev => ({ ...prev, bankAccountName: '' }));
+      } finally {
+        setIsResolvingAccountName(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounce);
+  }, [formData.bankCode, formData.bankAccountNumber, profile]);
+
   const mutation = useMutation({
     mutationFn: (data: Parameters<typeof updateLandlordProfile>[0]) => updateLandlordProfile(data),
     onSuccess: () => {
@@ -123,6 +186,16 @@ export default function LandlordProfilePage() {
     setErrors({});
     setGlobalError(null);
     setSuccessMessage(null);
+
+    if (isResolvingAccountName) {
+      setGlobalError('Please wait for bank account verification to complete.');
+      return;
+    }
+
+    if (lookupError) {
+      setGlobalError('Bank account verification failed. Please correct details.');
+      return;
+    }
 
     const newErrors: Partial<typeof errors> = {};
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required.';
@@ -171,8 +244,7 @@ export default function LandlordProfilePage() {
             }
           }}
           onSignOut={() => {
-            clearSession();
-            router.replace('/login');
+            logoutUser();
           }}
         >
           <div className="flex items-center justify-center h-64">
@@ -197,8 +269,7 @@ export default function LandlordProfilePage() {
           }
         }}
         onSignOut={() => {
-          clearSession();
-          router.replace('/login');
+          logoutUser();
         }}
       >
         <div className="flex flex-col gap-6 max-w-4xl mx-auto mt-6">
@@ -297,19 +368,14 @@ export default function LandlordProfilePage() {
                     className={`${INPUT_CLS} cursor-pointer`}
                     value={formData.bankCode}
                     onChange={handleChange}
-                    disabled={mutation.isPending}
+                    disabled={mutation.isPending || banksLoading}
                   >
-                    <option value="">— Select Bank —</option>
-                    <option value="058">GTBank (058)</option>
-                    <option value="057">Zenith Bank (057)</option>
-                    <option value="044">Access Bank (044)</option>
-                    <option value="011">First Bank (011)</option>
-                    <option value="033">United Bank for Africa (033)</option>
-                    <option value="032">Union Bank (032)</option>
-                    <option value="039">Stanbic IBTC (039)</option>
-                    <option value="070">Fidelity Bank (070)</option>
-                    <option value="232">Sterling Bank (232)</option>
-                    <option value="035">Wema Bank (035)</option>
+                    <option value="">{banksLoading ? 'Loading banks...' : '— Select Bank —'}</option>
+                    {banks.map(bank => (
+                      <option key={bank.code} value={bank.code}>
+                        {bank.name} ({bank.code})
+                      </option>
+                    ))}
                   </select>
                 </Field>
 
@@ -328,17 +394,38 @@ export default function LandlordProfilePage() {
                 </Field>
 
                 <div className="md:col-span-2">
-                  <Field label="Account Name" htmlFor="bankAccountName" error={errors.bankAccountName}>
-                    <input
-                      id="bankAccountName"
-                      name="bankAccountName"
-                      type="text"
-                      placeholder="e.g. Dave Landlord Properties Ltd"
-                      className={INPUT_CLS}
-                      value={formData.bankAccountName}
-                      onChange={handleChange}
-                      disabled={mutation.isPending}
-                    />
+                  <Field 
+                    label="Account Name" 
+                    htmlFor="bankAccountName" 
+                    error={errors.bankAccountName || lookupError || undefined}
+                  >
+                    <div className="relative flex items-center">
+                      <input
+                        id="bankAccountName"
+                        name="bankAccountName"
+                        type="text"
+                        placeholder={isResolvingAccountName ? "Resolving account name..." : "Choose bank & enter account number to resolve name"}
+                        className={`${INPUT_CLS} bg-surface-container-low/50`}
+                        value={formData.bankAccountName}
+                        readOnly={true}
+                        disabled={true}
+                      />
+                      {isResolvingAccountName && (
+                        <div className="absolute right-3 flex items-center gap-1.5 text-xs text-primary font-medium">
+                          <svg className="animate-spin h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Verifying...
+                        </div>
+                      )}
+                      {!isResolvingAccountName && formData.bankAccountName && !lookupError && (
+                        <div className="absolute right-3 flex items-center gap-1 text-xs text-success font-medium">
+                          <span className="material-symbols-outlined text-[16px] text-success">check_circle</span>
+                          Verified
+                        </div>
+                      )}
+                    </div>
                   </Field>
                 </div>
               </div>
@@ -354,7 +441,7 @@ export default function LandlordProfilePage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" loading={mutation.isPending} disabled={mutation.isPending}>
+              <Button type="submit" variant="primary" loading={mutation.isPending} disabled={mutation.isPending || isResolvingAccountName}>
                 {mutation.isPending ? 'Saving Details...' : 'Save Settings'}
               </Button>
             </div>

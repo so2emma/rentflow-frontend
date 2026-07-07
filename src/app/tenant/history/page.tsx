@@ -8,7 +8,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { getActiveLease, getActiveLeaseTransactions, downloadTenantStatement } from '@/lib/api/leases';
 import { getActiveLeaseLedgers } from '@/lib/api/ledgers';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
 import { InboundTransactionDTO, LedgerEntryResponse } from '@/types/api';
 
@@ -104,8 +104,7 @@ export default function TenantPaymentHistoryPage() {
   };
 
   function handleLogout() {
-    clearSession();
-    router.replace('/login');
+    logoutUser();
   }
 
   /* ── Calculations ──────────────────────────────────────────────────── */

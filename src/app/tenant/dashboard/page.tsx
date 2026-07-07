@@ -9,7 +9,7 @@ import { MetricCard } from '@/components/ui/MetricCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { getActiveLease, approveLease, rejectLease, contestLease } from '@/lib/api/leases';
 import { getActiveLeaseLedgers } from '@/lib/api/ledgers';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import { useAuthStore } from '@/store/authStore';
 import { LedgerEntryResponse } from '@/types/api';
 
@@ -78,8 +78,7 @@ export default function TenantDashboardPage() {
   });
 
   function handleLogout() {
-    clearSession();
-    router.replace('/login');
+    logoutUser();
   }
 
   /* ── Derived values ─────────────────────────────────────────────────── */

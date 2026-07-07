@@ -8,7 +8,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/Button';
 import { getUnit, updateUnit } from '@/lib/api/properties';
 import { useAuthStore } from '@/store/authStore';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import type { ApiErrorResponse } from '@/lib/api/client';
 import { UnitResponse } from '@/types/api';
 
@@ -161,8 +161,7 @@ export default function EditUnitPage() {
           if (id === 'dashboard') router.push('/landlord/dashboard');
         }}
         onSignOut={() => {
-          clearSession();
-          router.replace('/login');
+          logoutUser();
         }}
       >
         <div className="flex flex-col gap-6 max-w-4xl mx-auto mt-6">

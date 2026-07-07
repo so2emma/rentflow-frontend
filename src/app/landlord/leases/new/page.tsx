@@ -10,7 +10,7 @@ import { getUnits } from '@/lib/api/properties';
 import { getTenants } from '@/lib/api/tenants';
 import { createLease } from '@/lib/api/leases';
 import { useAuthStore } from '@/store/authStore';
-import { clearSession } from '@/lib/auth/session';
+import {logoutUser} from '@/lib/auth/session';
 import type { ApiErrorResponse } from '@/lib/api/client';
 import { UnitResponse, TenantResponse, LedgerEntryRequest } from '@/types/api';
 
@@ -163,8 +163,7 @@ export default function NewLeasePage() {
           if (id === 'dashboard') router.push('/landlord/dashboard');
         }}
         onSignOut={() => {
-          clearSession();
-          router.replace('/login');
+          logoutUser();
         }}
       >
         <div className="flex flex-col gap-6 max-w-4xl mx-auto mt-6">
