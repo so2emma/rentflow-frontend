@@ -7,6 +7,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardShell } from '@/components/layout/DashboardShell';
 import { Button } from '@/components/ui/Button';
 import { getLandlordProfile, updateLandlordProfile } from '@/lib/api/landlords';
+import { getBanks, lookupBankAccount } from '@/lib/api/banks';
 import { useAuthStore } from '@/store/authStore';
 import { clearSession } from '@/lib/auth/session';
 import type { ApiErrorResponse } from '@/lib/api/client';
@@ -64,6 +65,11 @@ export default function LandlordProfilePage() {
     queryFn: getLandlordProfile,
   });
 
+  const { data: banks, isLoading: isBanksLoading } = useQuery({
+    queryKey: ['banks'],
+    queryFn: getBanks,
+  });
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -89,6 +95,27 @@ export default function LandlordProfilePage() {
   const [errors, setErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+
+  useEffect(() => {
+    async function verifyAccount() {
+      if (formData.bankAccountNumber.length === 10 && formData.bankCode) {
+        setIsLookingUp(true);
+        setErrors(prev => ({ ...prev, bankAccountName: undefined, bankAccountNumber: undefined }));
+        try {
+          const res = await lookupBankAccount(formData.bankAccountNumber, formData.bankCode);
+          setFormData(prev => ({ ...prev, bankAccountName: res.data.accountName }));
+        } catch (err) {
+          setErrors(prev => ({ ...prev, bankAccountNumber: 'Could not verify account details.' }));
+          setFormData(prev => ({ ...prev, bankAccountName: '' }));
+        } finally {
+          setIsLookingUp(false);
+        }
+      }
+    }
+    // Only run if we actually have data typed by user or changed
+    verifyAccount();
+  }, [formData.bankAccountNumber, formData.bankCode]);
 
   const mutation = useMutation({
     mutationFn: (data: Parameters<typeof updateLandlordProfile>[0]) => updateLandlordProfile(data),
@@ -297,19 +324,12 @@ export default function LandlordProfilePage() {
                     className={`${INPUT_CLS} cursor-pointer`}
                     value={formData.bankCode}
                     onChange={handleChange}
-                    disabled={mutation.isPending}
+                    disabled={mutation.isPending || isBanksLoading}
                   >
                     <option value="">— Select Bank —</option>
-                    <option value="058">GTBank (058)</option>
-                    <option value="057">Zenith Bank (057)</option>
-                    <option value="044">Access Bank (044)</option>
-                    <option value="011">First Bank (011)</option>
-                    <option value="033">United Bank for Africa (033)</option>
-                    <option value="032">Union Bank (032)</option>
-                    <option value="039">Stanbic IBTC (039)</option>
-                    <option value="070">Fidelity Bank (070)</option>
-                    <option value="232">Sterling Bank (232)</option>
-                    <option value="035">Wema Bank (035)</option>
+                    {banks?.map((bank) => (
+                      <option key={bank.code} value={bank.code}>{bank.name}</option>
+                    ))}
                   </select>
                 </Field>
 
@@ -337,8 +357,9 @@ export default function LandlordProfilePage() {
                       className={INPUT_CLS}
                       value={formData.bankAccountName}
                       onChange={handleChange}
-                      disabled={mutation.isPending}
+                      disabled={mutation.isPending || isLookingUp}
                     />
+                    {isLookingUp && <p className="text-xs text-primary mt-1">Verifying account...</p>}
                   </Field>
                 </div>
               </div>
